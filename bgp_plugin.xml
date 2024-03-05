@@ -1,0 +1,7 @@
+<library path="lib/libcustom_planner">
+  <class name="CustomPlanner" type="custom_planner::CustomPlanner" base_class_type="nav_core::BaseGlobalPlanner">
+    <description>
+      An implementation of search-based planning using anytime A* and a lattice graph.
+    </description>
+  </class>
+</library>

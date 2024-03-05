@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>custom_planner</name>
+  <version>0.4.1</version>
+  <license>BSD</license>
+  <buildtool_depend>catkin</buildtool_depend>
+  <description>bla bla</description>
+  <maintainer email="huandt@phenikaa-x.com">HuanDT</maintainer>
+  <author>HuanDT</author>
+  
+  <build_depend>costmap_2d</build_depend>
+  <exec_depend>costmap_2d</exec_depend>
+
+  <build_depend>geometry_msgs</build_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+
+  <build_depend>nav_core</build_depend>
+  <exec_depend>nav_core</exec_depend>
+
+  <build_depend>nav_msgs</build_depend>
+  <exec_depend>nav_msgs</exec_depend>
+
+  <build_depend>pluginlib</build_depend>
+  <exec_depend>pluginlib</exec_depend>
+
+  <depend>roscpp</depend>
+
+  <build_depend>sbpl</build_depend>
+  <exec_depend>sbpl</exec_depend>
+
+  <build_depend>tf</build_depend>
+  <exec_depend>tf</exec_depend>
+
+  <build_depend>tf2</build_depend>
+  <exec_depend>tf2</exec_depend>
+
+  <build_depend>message_generation</build_depend>
+  <exec_depend>message_runtime</exec_depend>
+
+  <build_depend>xloc_msgs</build_depend>
+  <exec_depend>xloc_msgs</exec_depend>
+
+  <export>
+    <nav_core plugin="${prefix}/bgp_plugin.xml" />
+  </export>
+</package>
