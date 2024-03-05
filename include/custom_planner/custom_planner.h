@@ -43,11 +43,13 @@ struct userParams{
         pathway_filename = "pathway.txt";
         current_pose_topic_name = "/amcl_pose";
         map_frame_id = "map";
+        base_frame_id = "base_link";
     }
     string directory_to_save_paths;
     string pathway_filename;
     string current_pose_topic_name;
     string map_frame_id;
+    string base_frame_id;
 };
 
 class CustomPlanner : public nav_core::BaseGlobalPlanner{

@@ -100,10 +100,11 @@ namespace custom_planner
 
       private_nh.param("allow_unknown", allow_unknown_, bool(true));
 
-      private_nh.param("directory_to_save_paths", userParams_->directory_to_save_paths, string(""));
-      private_nh.param("pathway_filename", userParams_->pathway_filename, string(""));
-      private_nh.param("current_pose_topic_name", userParams_->current_pose_topic_name, string(""));
-      private_nh.param("map_frame_id", userParams_->map_frame_id, string(""));
+      private_nh.param("directory_to_save_paths", userParams_->directory_to_save_paths, userParams_->directory_to_save_paths);
+      private_nh.param("pathway_filename", userParams_->pathway_filename, userParams_->pathway_filename);
+      private_nh.param("current_pose_topic_name", userParams_->current_pose_topic_name, userParams_->current_pose_topic_name);
+      private_nh.param("map_frame_id", userParams_->map_frame_id, userParams_->map_frame_id);
+      private_nh.param("base_frame_id", userParams_->base_frame_id, userParams_->base_frame_id);
 
       name_ = name;
       costmap_ros_ = costmap_ros;

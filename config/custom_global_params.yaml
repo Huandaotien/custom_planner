@@ -1,0 +1,17 @@
+base_global_planner: CustomPlanner
+CustomPlanner:
+  environment_type: XYThetaLattice
+  planner_type: ARAPlanner
+  allocated_time: 10.0
+  initial_epsilon: 1.0
+  force_scratch_limit: 10000
+  forward_search: false
+  nominalvel_mpersecs: 0.8
+  timetoturn45degsinplace_secs: 1.31 # = 0.6 rad/s
+  allow_unknown: true
+  directory_to_save_paths: "/init/paths"
+  pathway_filename: "pathway.txt"
+  current_pose_topic_name: "/amcl_pose"
+  map_frame_id: "map"
+  base_frame_id: "base_link"
+  
