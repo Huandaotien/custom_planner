@@ -6,6 +6,7 @@
 - Install sbpl library:
     ```
     git clone https://github.com/sbpl/sbpl.git
+    cd sbpl
     mkdir build
     cd build
     cmake ..
