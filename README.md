@@ -16,6 +16,15 @@
 - Package dependency:
     + vda5050_api: https://github.com/nhamtung/vda5050_api.git
 
+- Install costmap-2d package:
+    ```
+    sudo apt-get install -y ros-noetic-costmap-2d
+    ```
+- Install nav-core package:
+    ```
+    sudo apt-get install -y ros-noetic-nav-core
+    ```
+
 # Service and topic:
 
 - Service file: 
