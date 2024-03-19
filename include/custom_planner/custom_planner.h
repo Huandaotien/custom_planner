@@ -146,7 +146,7 @@ private:
   void order_msg_handle(const vda5050_msgs::Order::ConstPtr& msg);
   bool HandleSetPlanWithOrder(custom_planner::PlanWithOrder::Request& request, custom_planner::PlanWithOrder::Response& response);
 
-  bool makePlanWithOrder(vda5050_msgs::Order msg);
+  bool makePlanWithOrder(vda5050_msgs::Order msg, uint8_t& status, string& message);
 
   bool isThetaValid(double theta);
 
@@ -160,6 +160,8 @@ private:
   double computeDeltaAngleEndNode(double theta, Pose& endPose, Pose& prev_Pose);
 
   void setYawAllPosesOnEdge(vector<Pose>& posesOnEdge, bool reverse);
+
+  double computeDeltaAngle(Pose& Pose1, Pose& Pose2);
 
   Spline_Inf* input_spline_inf;
   Curve_common* CurveDesign;

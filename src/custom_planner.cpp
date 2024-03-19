@@ -471,8 +471,11 @@ namespace custom_planner
       gui_path.poses = plan;
       plan_pub_.publish(gui_path);
     }
+    // For deverlop (To do: improve make plan with sbpl lattice)
+    /*
     else
     {
+      
       ROS_INFO("[custom_planner] getting start point (%g,%g) goal point (%g,%g)",
               start.pose.position.x, start.pose.position.y, goal.pose.position.x, goal.pose.position.y);
       double theta_start = 2 * atan2(start.pose.orientation.z, start.pose.orientation.w);
@@ -664,6 +667,7 @@ namespace custom_planner
       plan_pub_.publish(gui_path);
       publishStats(solution_cost, sbpl_path.size(), start, goal);
     }
+    */
     return true;
   }
 
@@ -772,6 +776,15 @@ namespace custom_planner
         }      
         it++;  
       }
+      for(int i = start_on_path_index; i< (int)posesOnPathWay.size(); i++)
+      {
+        double delta_angle = computeDeltaAngle(PoseToCheck, posesOnPathWay[i]);
+        if(delta_angle <= 0.5235987756||delta_angle >= 2.617993878) // <= 30 degree or >= 150 degree
+        {
+          start_on_path_index = i;
+          break;
+        }
+      }
       result = true;
     }
     else
@@ -783,10 +796,15 @@ namespace custom_planner
 
   void CustomPlanner::order_msg_handle(const vda5050_msgs::Order::ConstPtr& msg)
   {
-    ROS_INFO("order_msg_handle is called");
-    if(makePlanWithOrder(*msg))
+    uint8_t status;
+    string message;
+    if(makePlanWithOrder(*msg, status, message))
     {
-      ROS_WARN("order is received, start make plan");
+      ROS_INFO("Success to make plan with order");
+    }
+    else
+    {
+      ROS_WARN("%s",message.c_str());
     }
   }
 
@@ -794,14 +812,33 @@ namespace custom_planner
         custom_planner::PlanWithOrder::Request& request,
         custom_planner::PlanWithOrder::Response& response)
   {
-    ROS_WARN("HandleSetPlanWithOrder is called");
+    uint8_t status;
+    string message;
+    if(makePlanWithOrder(request.order, status, message))
+    {
+      response.status = status;
+      response.message = message;
+      response.success = true;
+    }
+    else
+    {
+      response.status = status;
+      response.message = message;
+      response.success = false;
+    }
     return true;
   }
 
-  bool CustomPlanner::makePlanWithOrder(vda5050_msgs::Order msg)
+  bool CustomPlanner::makePlanWithOrder(vda5050_msgs::Order msg, uint8_t& status, string& message)
   {
     orderNodes.clear();
     posesOnPathWay.clear();
+    if((int)msg.nodes.size()==0&&(int)msg.edges.size()==0)
+    {
+      status = 1;
+      message = "Nodes and Edges in Order is empty";
+      return false;
+    }
     for(int i=0;i<(int)msg.nodes.size();i++)
     {
       orderNodes[msg.nodes[i].nodeId] = {msg.nodes[i].nodeId, msg.nodes[i].sequenceId, 
@@ -847,19 +884,19 @@ namespace custom_planner
             curve_point = CurveDesign->CalculateCurvePoint(input_spline_inf, u_test, true);
             if(!std::isnan(curve_point.x)&&!std::isnan(curve_point.y))
             posesOnEdge.push_back(Pose(curve_point.x, curve_point.y, 0));
-            ROS_WARN("curve_point: %f, %f   at u: %f",curve_point.x, curve_point.y, u_test);
+            ROS_INFO("curve_point: %f, %f   at u: %f",curve_point.x, curve_point.y, u_test);
           }
           if(!isThetaValid(orderNodes[msg.edges[i].startNodeId].theta)&&!isThetaValid(orderNodes[msg.edges[i].endNodeId].theta))
           {
             // if startNode of this edge and start element of posesOnEdge are the different point
             if(orderNodes[msg.edges[i].startNodeId].position_x!=posesOnEdge.front().getX()||
-               orderNodes[msg.edges[i].startNodeId].position_y!=posesOnEdge.front().getY())
+              orderNodes[msg.edges[i].startNodeId].position_y!=posesOnEdge.front().getY())
             {
               posesOnEdge.insert(posesOnEdge.begin(), Pose(orderNodes[msg.edges[i].startNodeId].position_x, orderNodes[msg.edges[i].startNodeId].position_y, 0.0123443210));              
             }
-             // if endNode of this edge and end element of posesOnEdge are the different point
+            // if endNode of this edge and end element of posesOnEdge are the different point
             if(orderNodes[msg.edges[i].endNodeId].position_x!=posesOnEdge.back().getX()||
-               orderNodes[msg.edges[i].endNodeId].position_y!=posesOnEdge.back().getY())
+              orderNodes[msg.edges[i].endNodeId].position_y!=posesOnEdge.back().getY())
             {
               posesOnEdge.insert(posesOnEdge.end(), Pose(orderNodes[msg.edges[i].endNodeId].position_x, orderNodes[msg.edges[i].endNodeId].position_y, 0.0123443210));              
             }
@@ -879,6 +916,9 @@ namespace custom_planner
                 {
                   ROS_WARN("Trajectory of Edge: %s, startNode: %s, endNode: %s is not good", 
                   msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str(),  msg.edges[i].endNodeId.c_str());
+                  status = 3;
+                  message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
+                  ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
                   break;
                   return false;
                 }
@@ -887,6 +927,9 @@ namespace custom_planner
               {
                 ROS_WARN("Trajectory of Edge: %s. startNode: %s has posision invalid", 
                 msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str());
+                status = 3;
+                message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
+                ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
                 break;
                 return false;
               }
@@ -900,13 +943,13 @@ namespace custom_planner
           {
             // if startNode of this edge and start element of posesOnEdge are the different point
             if(orderNodes[msg.edges[i].startNodeId].position_x!=posesOnEdge.front().getX()||
-               orderNodes[msg.edges[i].startNodeId].position_y!=posesOnEdge.front().getY())
+              orderNodes[msg.edges[i].startNodeId].position_y!=posesOnEdge.front().getY())
             {
               posesOnEdge.insert(posesOnEdge.begin(), Pose(orderNodes[msg.edges[i].startNodeId].position_x, orderNodes[msg.edges[i].startNodeId].position_y, 0.0123443210));              
             }
-             // if endNode of this edge and end element of posesOnEdge are the different point
+            // if endNode of this edge and end element of posesOnEdge are the different point
             if(orderNodes[msg.edges[i].endNodeId].position_x!=posesOnEdge.back().getX()||
-               orderNodes[msg.edges[i].endNodeId].position_y!=posesOnEdge.back().getY())
+              orderNodes[msg.edges[i].endNodeId].position_y!=posesOnEdge.back().getY())
             {
               posesOnEdge.insert(posesOnEdge.end(), 
               Pose(orderNodes[msg.edges[i].endNodeId].position_x, orderNodes[msg.edges[i].endNodeId].position_y, orderNodes[msg.edges[i].endNodeId].theta));              
@@ -940,6 +983,9 @@ namespace custom_planner
               {
                 ROS_WARN("Trajectory of Edge: %s, startNode: %s, endNode: %s is not good", 
                 msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str(),  msg.edges[i].endNodeId.c_str());
+                status = 3;
+                message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
+                ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
                 break;
                 return false;
               }
@@ -959,6 +1005,9 @@ namespace custom_planner
                 {
                   ROS_WARN("Trajectory of Edge: %s, startNode: %s, endNode: %s is not good", 
                   msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str(),  msg.edges[i].endNodeId.c_str());
+                  status = 3;
+                  message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
+                  ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
                   break;
                   return false;
                 }
@@ -967,6 +1016,9 @@ namespace custom_planner
               {
                 ROS_WARN("Trajectory of Edge: %s. startNode: %s has posision invalid", 
                 msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str());
+                status = 3;
+                message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
+                ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
                 break;
                 return false;
               }
@@ -980,14 +1032,14 @@ namespace custom_planner
           { 
             // if startNode of this edge and start element of posesOnEdge are the different point
             if(orderNodes[msg.edges[i].startNodeId].position_x!=posesOnEdge.front().getX()||
-               orderNodes[msg.edges[i].startNodeId].position_y!=posesOnEdge.front().getY())
+              orderNodes[msg.edges[i].startNodeId].position_y!=posesOnEdge.front().getY())
             {
               posesOnEdge.insert(posesOnEdge.begin(), 
               Pose(orderNodes[msg.edges[i].startNodeId].position_x, orderNodes[msg.edges[i].startNodeId].position_y, orderNodes[msg.edges[i].startNodeId].theta));              
             }
-             // if endNode of this edge and end element of posesOnEdge are the different point
+            // if endNode of this edge and end element of posesOnEdge are the different point
             if(orderNodes[msg.edges[i].endNodeId].position_x!=posesOnEdge.back().getX()||
-               orderNodes[msg.edges[i].endNodeId].position_y!=posesOnEdge.back().getY())
+              orderNodes[msg.edges[i].endNodeId].position_y!=posesOnEdge.back().getY())
             {
               posesOnEdge.insert(posesOnEdge.end(), 
               Pose(orderNodes[msg.edges[i].endNodeId].position_x, orderNodes[msg.edges[i].endNodeId].position_y, 0.0123443210));          
@@ -1006,6 +1058,9 @@ namespace custom_planner
             {
               ROS_WARN("Trajectory of Edge: %s, startNode: %s, endNode: %s is not good", 
               msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str(),  msg.edges[i].endNodeId.c_str());
+              status = 3;
+              message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
+              ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
               break;
               return false;
             }
@@ -1024,6 +1079,9 @@ namespace custom_planner
                 {
                   ROS_WARN("Trajectory of Edge: %s, startNode: %s, endNode: %s is not good", 
                   msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str(),  msg.edges[i].endNodeId.c_str());
+                  status = 3;
+                  message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
+                  ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
                   break;
                   return false;
                 }
@@ -1032,6 +1090,9 @@ namespace custom_planner
               {
                 ROS_WARN("Trajectory of Edge: %s. startNode: %s has posision invalid", 
                 msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str());
+                status = 3;
+                message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
+                ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
                 break;
                 return false;
               }
@@ -1045,21 +1106,21 @@ namespace custom_planner
           {
             // if startNode of this edge and start element of posesOnEdge are the different point
             if(orderNodes[msg.edges[i].startNodeId].position_x!=posesOnEdge.front().getX()||
-               orderNodes[msg.edges[i].startNodeId].position_y!=posesOnEdge.front().getY())
+              orderNodes[msg.edges[i].startNodeId].position_y!=posesOnEdge.front().getY())
             {
               posesOnEdge.insert(posesOnEdge.begin(), 
               Pose(orderNodes[msg.edges[i].startNodeId].position_x, orderNodes[msg.edges[i].startNodeId].position_y, orderNodes[msg.edges[i].startNodeId].theta));              
             }
-             // if endNode of this edge and end element of posesOnEdge are the different point
+            // if endNode of this edge and end element of posesOnEdge are the different point
             if(orderNodes[msg.edges[i].endNodeId].position_x!=posesOnEdge.back().getX()||
-               orderNodes[msg.edges[i].endNodeId].position_y!=posesOnEdge.back().getY())
+              orderNodes[msg.edges[i].endNodeId].position_y!=posesOnEdge.back().getY())
             {
               posesOnEdge.insert(posesOnEdge.end(), 
               Pose(orderNodes[msg.edges[i].endNodeId].position_x, orderNodes[msg.edges[i].endNodeId].position_y, orderNodes[msg.edges[i].endNodeId].theta));          
             }
             // DeltaAngleStart <= 50 degree and DeltaAngleEnd <= 50 degree
             if(computeDeltaAngleStartNode(orderNodes[msg.edges[i].startNodeId].theta, posesOnEdge.front(), posesOnEdge[1]) <= 0.872664626 &&
-               computeDeltaAngleEndNode(orderNodes[msg.edges[i].endNodeId].theta, posesOnEdge.back(), posesOnEdge[posesOnEdge.size()-2]) <= 0.872664626)
+              computeDeltaAngleEndNode(orderNodes[msg.edges[i].endNodeId].theta, posesOnEdge.back(), posesOnEdge[posesOnEdge.size()-2]) <= 0.872664626)
             {
               setYawAllPosesOnEdge(posesOnEdge, false);
               posesOnEdge.front().setYaw(orderNodes[msg.edges[i].startNodeId].theta); // set yaw angle of the start pose to startNode theta
@@ -1088,6 +1149,9 @@ namespace custom_planner
                 {
                   ROS_WARN("Trajectory of Edge: %s, startNode: %s, endNode: %s is not good", 
                   msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str(),  msg.edges[i].endNodeId.c_str());
+                  status = 3;
+                  message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
+                  ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
                   break;
                   return false;
                 }
@@ -1096,6 +1160,9 @@ namespace custom_planner
               {
                 ROS_WARN("Trajectory of Edge: %s. startNode: %s has posision invalid", 
                 msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str());
+                status = 3;
+                message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
+                ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
                 break;
                 return false;
               }
@@ -1109,6 +1176,9 @@ namespace custom_planner
         else{
           ROS_WARN("Trajectory of Edge: %s, startNodeId: %s, endNodeId: %s is invalid", msg.edges[i].edgeId.c_str(), 
           msg.edges[i].startNodeId.c_str(), msg.edges[i].endNodeId.c_str());
+          status = 2;
+          message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
+          ", endNode: " + msg.edges[i].endNodeId.c_str() + " is invalid NURBS-curve";
           break;
           return false;
         }
@@ -1117,11 +1187,16 @@ namespace custom_planner
       {
         ROS_WARN("Edge: %s not found startNodeId: %s or endNodeId: %s", msg.edges[i].edgeId.c_str(), 
         msg.edges[i].startNodeId.c_str(), msg.edges[i].endNodeId.c_str());
+        status = 1;
+        message = "Edge: " + msg.edges[i].edgeId + " not found startNodeId: " + msg.edges[i].startNodeId.c_str() +                   
+          " or endNodeId: " + msg.edges[i].endNodeId.c_str();
         break;
         return false;
       }
-      ROS_WARN("Finish to compute at Edge: %s", msg.edges[i].edgeId.c_str());
+      ROS_INFO("Finish to compute at Edge: %s", msg.edges[i].edgeId.c_str());
     }
+    status = 0;
+    message = "Success to make plan: StartNode: " + msg.edges[0].startNodeId + ", EndNode: " + msg.edges[msg.edges.size()-1].endNodeId;
     return true;
   }
 
@@ -1263,6 +1338,30 @@ namespace custom_planner
       double xAC = xC - xA;
       double yAC = yC - yA;
       double cos_a = (xAB*xAC + yAB*yAC)/(d*d);
+      delta_angle = acos(cos_a);
+      // delta_angle = delta_angle*180/M_PI;
+      // ROS_WARN("delta_angle: %f", delta_angle);
+    }   
+    return delta_angle;
+  }
+
+  double CustomPlanner::computeDeltaAngle(Pose& Pose1, Pose& Pose2)
+  {
+    double delta_angle = 0;
+    if(isThetaValid(Pose1.getYaw())&&isThetaValid(Pose2.getYaw()))
+    {
+      double xA = Pose1.getX();
+      double yA = Pose1.getY();
+      double xB = Pose2.getX();
+      double yB = Pose2.getY();
+      double xAB = xB - xA;
+      double yAB = yB - yA;
+      double d = sqrt(xAB*xAB + yAB*yAB);
+      double xC = xB + d*cos(Pose2.getYaw());
+      double yC = yB + d*sin(Pose2.getYaw());
+      double xBC = xC - xB;
+      double yBC = yC - yB;
+      double cos_a = (xAB*xBC + yAB*yBC)/(d*d);
       delta_angle = acos(cos_a);
       // delta_angle = delta_angle*180/M_PI;
       // ROS_WARN("delta_angle: %f", delta_angle);
