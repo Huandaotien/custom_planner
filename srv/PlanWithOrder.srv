@@ -1,0 +1,10 @@
+uint8 OK=0 # Trạng thái OK
+uint8 NODE_ID_NOT_FOUND=1 # Không tìm thấy startNodeId hoặc endNodeId (của edgeId ...) 
+uint8 TRAJECTORY_INVALID=2 # Trajectory (của edgeId ...) không hợp lệ theo định dạng đường NURBS curve.
+uint8 TRAJECTORY_NOTGOOD=3 # Trajectory (của edgeId ...) có góc theta của startNode (startNodeId ...) hoặc endNode (endNodeId ...) không phù hợp để di chuyển
+
+vda5050_msgs/Order order
+---
+bool success # True: Đã nhận order message, thông tin hợp lệ. False: nhận order message không thành công hoặc thông tin không hợp lệ.
+uint8 status # Trạng thái tuân theo enum bên trên.
+string message # Hiển thị thông tin chi tiết về trạng thái.

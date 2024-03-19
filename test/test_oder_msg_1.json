@@ -1,0 +1,165 @@
+{
+  "headerId": 2,
+  "timestamp": "3/7/2024 4:25:37 PM",
+  "version": "0.0.1",
+  "manufacturer": "phenikaaX",
+  "serialNumber": "PNKX-APM-1000-001",
+  "orderId": "1",
+  "orderUpdateId": 1,
+  "zoneSetId": "1",
+  "nodes": [
+    {
+      "nodeId": "node_0",
+      "sequenceId": 0,
+      "nodeDescription": "Point0",
+      "released": false,
+      "nodePosition": {
+        "x": -32.72112274,
+        "y": -3.00214934,
+        "theta": 10,
+        "allowedDeviationXY": 0,
+        "allowedDeviationTheta": 0,
+        "mapId": "map1",
+        "mapDescription": ""
+      },
+      "actions": []
+    },
+    {
+      "nodeId": "node_1",
+      "sequenceId": 1,
+      "nodeDescription": "Point1",
+      "released": false,
+      "nodePosition": {
+        "x": -21.30411720,
+        "y": -3.277401924,
+        "theta": 10,
+        "allowedDeviationXY": 0,
+        "allowedDeviationTheta": 0,
+        "mapId": "map1",
+        "mapDescription": ""
+      },
+      "actions": []
+    },
+    {
+      "nodeId": "node_2",
+      "sequenceId": 2,
+      "nodeDescription": "Point2",
+      "released": false,
+      "nodePosition": {
+        "x": -25.37045288,
+        "y": -0.4407866,
+        "theta": 10,
+        "allowedDeviationXY": 0,
+        "allowedDeviationTheta": 0,
+        "mapId": "map1",
+        "mapDescription": ""
+      },
+      "actions": []
+    }
+
+  ],
+  "edges": [
+    {
+      "edgeId": "edge_0",
+      "sequenceId": 0,
+      "edgeDescription": "",
+      "released": false,
+      "startNodeId": "node_0",
+      "endNodeId": "node_1",
+      "maxSpeed": 0,
+      "maxHeight": 0,
+      "minHeight": 0,
+      "orientation": 0,
+      "orientationType": "",
+      "direction": "",
+      "rotationAllowed": false,
+      "maxRotationSpeed": 0,
+      "length": 0,
+      "trajectory": {
+        "degree": 2,
+        "knotVector": [
+          0, 0, 0, 0.429, 0.51, 1, 1, 1
+        ],
+        "controlPoints": [
+          {
+            "x": -32.72112274,
+            "y": -3.00214934,
+            "weight": 1
+          },
+          {
+            "x": -30.1113662,
+            "y": -3.16109943,
+            "weight": 1
+          },
+          {
+            "x": -27.392293,
+            "y": -3.45399284,
+            "weight": 1
+          },
+          {
+            "x": -24.558155,
+            "y": -3.30520224,
+            "weight": 1
+          },
+          {
+            "x": -21.30411720,
+            "y": -3.277401924,
+            "weight": 1
+          }
+        ]
+      },
+      "actions": []
+    },
+    {
+      "edgeId": "edge_1",
+      "sequenceId": 1,
+      "edgeDescription": "",
+      "released": false,
+      "startNodeId": "node_1",
+      "endNodeId": "node_2",
+      "maxSpeed": 0,
+      "maxHeight": 0,
+      "minHeight": 0,
+      "orientation": 0,
+      "orientationType": "",
+      "direction": "",
+      "rotationAllowed": false,
+      "maxRotationSpeed": 0,
+      "length": 0,
+      "trajectory": {
+        "degree": 2,
+        "knotVector": [
+          0, 0, 0, 0.492, 0.51, 1, 1, 1
+        ],
+        "controlPoints": [
+          {
+            "x": -21.30411720,
+            "y": -3.277401924,
+            "weight": 1
+          },
+          {
+            "x": -17.88239288,
+            "y": -1.8441799879,
+            "weight": 1
+          },
+          {
+            "x": -19.45642,
+            "y": -0.5650320649,
+            "weight": 1
+          },
+          {
+            "x": -21.53923416,
+            "y": -0.169115737,
+            "weight": 1
+          },
+          {
+            "x": -25.37045288,
+            "y": -0.4407866,
+            "weight": 1
+          }
+        ]
+      },
+      "actions": []
+    }
+  ]
+}

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <map>
 
 using namespace std;
 
@@ -31,9 +32,25 @@ using namespace std;
 // internal lib
 #include <custom_planner/pose.h>
 #include <custom_planner/pathway.h>
+#include "custom_planner/Curve_common.h"
+#include "custom_planner/conversion.h"
+#include "custom_planner/PlanWithOrder.h"
+
+#include <geometry_msgs/PoseArray.h>
 
 #include <thread>
 #include <boost/thread.hpp>
+
+#include "vda5050_msgs/Order.h"
+#include "vda5050_msgs/Trajectory.h"
+#include "vda5050_msgs/Edge.h"
+#include "vda5050_msgs/Node.h"
+#include "vda5050_msgs/ControlPoint.h"
+#include "vda5050_msgs/NodePosition.h"
+
+
+
+using namespace std;
 
 namespace custom_planner{
 
@@ -50,6 +67,14 @@ struct userParams{
     string current_pose_topic_name;
     string map_frame_id;
     string base_frame_id;
+};
+
+struct OrderNode{
+  string nodeId;
+  uint32_t sequenceId;
+  double position_x;
+  double position_y;
+  double theta;
 };
 
 class CustomPlanner : public nav_core::BaseGlobalPlanner{
@@ -108,16 +133,44 @@ private:
  
 
   inline double getYaw(double x, double y, double z, double w);
+  inline double calculateAngle(double xA, double yA, double xB, double yB) {
+    double angleRad = atan2(yB - yA, xB - xA);
+    // double angleDeg = angleRad * 180.0 / M_PI;
+    return angleRad;
+  }
 
   bool loadPathwayData(const string& filename);
 
   bool findNearestPoseOfPath(vector<Pose>& posesOnPathWay, Pose& PoseToCheck, Pose& PoseResult);
-  
+
+  void order_msg_handle(const vda5050_msgs::Order::ConstPtr& msg);
+  bool HandleSetPlanWithOrder(custom_planner::PlanWithOrder::Request& request, custom_planner::PlanWithOrder::Response& response);
+
+  bool makePlanWithOrder(vda5050_msgs::Order msg);
+
+  bool isThetaValid(double theta);
+
+  bool curveIsValid(int degree, const std::vector<double> &knot_vector,
+                  vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>>& control_points);
+
+  double computeDeltaAngleStartNode(double theta, Pose& startPose, Pose& next_Pose);
+
+  double computeDeltaAngleStartNode(double thetaEnd, double thetaStart, Pose& Pose);
+
+  double computeDeltaAngleEndNode(double theta, Pose& endPose, Pose& prev_Pose);
+
+  void setYawAllPosesOnEdge(vector<Pose>& posesOnEdge, bool reverse);
+
+  Spline_Inf* input_spline_inf;
+  Curve_common* CurveDesign;
   Pathway* pathway;   
   userParams* userParams_; 
   Pose* startPose;
   vector<Pose> posesOnPathWay;      
-  Pose start_on_path;      
+  Pose start_on_path;  
+  std::map<string, OrderNode> orderNodes;  
+
+  vda5050_msgs::Order order_msg_;
   uint16_t start_on_path_index;
   bool initialized_;
 
@@ -152,8 +205,11 @@ private:
   unsigned int current_env_width_;
   unsigned int current_env_height_;
 
+  ros::Subscriber order_msg_sub_;
   ros::Publisher plan_pub_;
   ros::Publisher stats_publisher_;
+
+  vector<ros::ServiceServer> service_servers_;
   
   ros::Publisher sbpl_plan_footprint_pub_;  
   boost::mutex mutex_;
