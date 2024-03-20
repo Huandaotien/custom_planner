@@ -96,8 +96,6 @@ install(FILES bgp_plugin.xml
 install(DIRECTORY
   launch
   matlab
-  rviz
-  worlds
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 MESSAGE(STATUS "This is include dir: " ${catkin_INCLUDE_DIRS})
