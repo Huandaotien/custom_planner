@@ -211,7 +211,7 @@ namespace custom_planner
       string pathway_fullfilename = userParams_->directory_to_save_paths + "/" + userParams_->pathway_filename;        
       if(loadPathwayData(pathway_fullfilename)) cout<< "Success in load pathway file: "<<pathway_fullfilename<<endl;
       else std::cout<<pathway_fullfilename<<" is not existed"<<std::endl;
-      order_msg_sub_ = private_nh.subscribe("/order",1000,&CustomPlanner::order_msg_handle,this);
+      // order_msg_sub_ = private_nh.subscribe("/order",1000,&CustomPlanner::order_msg_handle,this);
       service_servers_.push_back(private_nh.advertiseService("set_plan_with_order", &CustomPlanner::HandleSetPlanWithOrder, this));
 
       // vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>> control_point;
