@@ -69,7 +69,7 @@ namespace custom_planner
     if (!initialized_)
     {
       ros::NodeHandle private_nh("~/" + name);
-
+      ros::NodeHandle p_nh("~");
       ROS_INFO("Name is %s", name.c_str());
 
       userParams_ = new userParams();
@@ -83,7 +83,7 @@ namespace custom_planner
       private_nh.param("initial_epsilon", initial_epsilon_, 3.0);
       private_nh.param("environment_type", environment_type_, string("XYThetaLattice"));
       private_nh.param("forward_search", forward_search_, bool(false));
-      private_nh.param("primitive_filename", primitive_filename_, string(""));
+      p_nh.param("primitive_filename", primitive_filename_, string(""));
       private_nh.param("force_scratch_limit", force_scratch_limit_, 500);
 
       double nominalvel_mpersecs, timetoturn45degsinplace_secs;
