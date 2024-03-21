@@ -919,8 +919,8 @@ namespace custom_planner
                   status = 3;
                   message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
                   ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-                  break;
                   return false;
+                  break;                  
                 }
               }
               else
@@ -930,8 +930,8 @@ namespace custom_planner
                 status = 3;
                 message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
                 ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-                break;
                 return false;
+                break;                
               }
             }
             else // posesOnPathWay is empty
@@ -986,8 +986,8 @@ namespace custom_planner
                 status = 3;
                 message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
                 ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-                break;
                 return false;
+                break;                
               }
             }            
             if(!posesOnPathWay.empty())  // posesOnPathWay has datas 
@@ -1008,8 +1008,8 @@ namespace custom_planner
                   status = 3;
                   message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
                   ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-                  break;
                   return false;
+                  break;                  
                 }
               }
               else
@@ -1019,8 +1019,8 @@ namespace custom_planner
                 status = 3;
                 message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
                 ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-                break;
                 return false;
+                break;                
               }
             }
             else // posesOnPathWay is empty
@@ -1061,8 +1061,8 @@ namespace custom_planner
               status = 3;
               message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
               ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-              break;
               return false;
+              break;              
             }
             if(!posesOnPathWay.empty())  // posesOnPathWay has datas 
             {
@@ -1082,8 +1082,8 @@ namespace custom_planner
                   status = 3;
                   message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
                   ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-                  break;
                   return false;
+                  break;                  
                 }
               }
               else
@@ -1093,8 +1093,8 @@ namespace custom_planner
                 status = 3;
                 message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
                 ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-                break;
                 return false;
+                break;                
               }
             }
             else // posesOnPathWay is empty
@@ -1152,8 +1152,8 @@ namespace custom_planner
                   status = 3;
                   message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
                   ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-                  break;
                   return false;
+                  break;                  
                 }
               }
               else
@@ -1163,8 +1163,8 @@ namespace custom_planner
                 status = 3;
                 message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
                 ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-                break;
                 return false;
+                break;                
               }
             }
             else // posesOnPathWay is empty
@@ -1179,8 +1179,8 @@ namespace custom_planner
           status = 2;
           message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
           ", endNode: " + msg.edges[i].endNodeId.c_str() + " is invalid NURBS-curve";
-          break;
           return false;
+          break;          
         }
       }
       else
@@ -1190,8 +1190,8 @@ namespace custom_planner
         status = 1;
         message = "Edge: " + msg.edges[i].edgeId + " not found startNodeId: " + msg.edges[i].startNodeId.c_str() +                   
           " or endNodeId: " + msg.edges[i].endNodeId.c_str();
-        break;
         return false;
+        break;        
       }
       ROS_INFO("Finish to compute at Edge: %s", msg.edges[i].edgeId.c_str());
     }
