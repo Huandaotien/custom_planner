@@ -274,6 +274,21 @@ namespace custom_planner
       //     } 
       //   }
       // }
+
+      // std::vector<int> source = {1, 2, 3, 4, 5, 6, 7, 88, 9, 10, 11, 12, 13, 14};
+      // int n = 0;
+      // vector<int> result;
+      // for(int i = (int)source.size()-1; i>=0; i--)
+      // {
+      //   if(source[i] == 88)
+      //   {          
+      //     result.assign(source.begin()+i, source.end());
+      //   }
+      // }
+      // std::reverse(result.begin(), result.end());
+      // for (int num : result) {
+      //     ROS_WARN("num: %d", num);
+      // }
       initialized_ = true;
     }
   }
@@ -1200,6 +1215,170 @@ namespace custom_planner
     return true;
   }
 
+  bool CustomPlanner::makePlanForRetry(std::vector<geometry_msgs::PoseStamped>& current_plan, 
+    geometry_msgs::PoseStamped& pose_A, geometry_msgs::PoseStamped& pose_B, 
+    geometry_msgs::PoseStamped& pose_C, std::vector<geometry_msgs::PoseStamped>& result_plan)
+  {    
+    if(current_plan.empty()||current_plan.size()<2)
+    {
+      ROS_WARN("current_plan is empty");
+      return false;
+    }
+    double xCA = pose_A.pose.position.x - pose_C.pose.position.x;
+    double yCA = pose_A.pose.position.y - pose_C.pose.position.y;
+    double xCB = pose_B.pose.position.x - pose_C.pose.position.x;
+    double yCB = pose_B.pose.position.y - pose_C.pose.position.y;
+    double rCA = sqrt(xCA*xCA + yCA*yCA);
+    double rCB = sqrt(xCB*xCB + yCB*yCB);
+    if(rCA!=rCB)
+    {
+      ROS_WARN("pose_C is not Center of Curve AB");
+      return false;
+    }
+    bool result = false;
+    int indexOfPoseA = 0;
+    vector<geometry_msgs::PoseStamped> PlanRetry_1;
+    vector<geometry_msgs::PoseStamped> PlanRetry_2;
+
+    // Tính ra PlanRetry_1 điểm retry tại Pose_A
+    for(int i = ((int)current_plan.size()-1); i>=0; i--)
+    {
+      if(pose_A.pose==current_plan[i].pose)
+      {
+        indexOfPoseA = i;
+        ROS_INFO("Found pose_A at element number: %d in current plan",indexOfPoseA);
+        PlanRetry_1.assign(current_plan.begin()+i, current_plan.end());
+      }
+      else
+      {
+        ROS_WARN("Not find pose_A in current plan");
+        return false;
+      }      
+    }
+    if(!PlanRetry_1.empty()){
+      std::reverse(PlanRetry_1.begin(), PlanRetry_1.end());
+    }
+    // Tính ra PlanRetry_2 với biên dạng cung tròn đi qua pose_A và pose_B, có tâm tại pose_C
+
+    double cos_ACB = (xCA*xCB + yCA*yCB)/(rCA*rCB);
+    double angleACB = acos(cos_ACB);
+    double angle_interval = 0.005;
+    // tính góc của vector CA:
+    double angleCA = atan2(yCA, xCA);
+
+    // check thử xem chiều góc quét từ A -> B thì angleCA + delta_angle hay angleCA - delta_angle
+    bool is_increase_angle = false;
+    double check_angle = angleCA + 50*angle_interval*angleACB;
+    double xA1 = pose_C.pose.position.x + rCA*cos(check_angle);
+    double yA1 = pose_C.pose.position.y + rCA*sin(check_angle);
+    double xCA1 = xA1 - pose_C.pose.position.x;
+    double yCA1 = yA1 - pose_C.pose.position.y;
+    double cos_A1CB = (xCA1*xCB + yCA1*yCB)/(rCA*rCB);
+    double angleA1CB = acos(cos_A1CB);
+    if(angleA1CB>angleACB)
+    {
+      is_increase_angle = false;
+    }
+    else if(angleA1CB<angleACB)
+    {
+      is_increase_angle = true;
+    }
+    else
+    {
+      ROS_WARN("Curve AB is too short, cannot compute plan");
+      return false;
+    }
+    if(is_increase_angle)
+    {
+      for(double i = 0; i<=1; i+= angle_interval)
+      {
+        double angle_tmp = angleCA + angleACB*i;
+        double xP = pose_C.pose.position.x + rCA*cos(angle_tmp);
+        double yP = pose_C.pose.position.y + rCA*sin(angle_tmp);
+        geometry_msgs::PoseStamped p;
+        p.pose.position.x = xP;
+        p.pose.position.y = yP;
+        p.pose.position.z = 0;
+        PlanRetry_2.push_back(p);
+      }
+    }
+    else
+    {
+      for(double i = 0; i<=1; i+= angle_interval)
+      {
+        double angle_tmp = angleCA - angleACB*i;
+        double xP = pose_C.pose.position.x + rCA*cos(angle_tmp);
+        double yP = pose_C.pose.position.y + rCA*sin(angle_tmp);
+        geometry_msgs::PoseStamped p;
+        p.pose.position.x = xP;
+        p.pose.position.y = yP;
+        p.pose.position.z = 0;
+        PlanRetry_2.push_back(p);
+      }
+    }
+    if(!PlanRetry_2.empty()&&PlanRetry_2.size()>2)
+    {
+      for(int i = 0 ; i < PlanRetry_2.size(); i++)
+      {
+        ROS_INFO("Pose %d in PlanRetry : %f, %f", i, PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y);
+      }
+      if(computeDeltaAngleStartOfPlan(getYaw(pose_A.pose.orientation.x, pose_A.pose.orientation.y, pose_A.pose.orientation.z, pose_A.pose.orientation.w),
+        PlanRetry_2.front().pose, PlanRetry_2[1].pose) <= 0.872664626 &&  
+        computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
+        PlanRetry_2.back().pose, PlanRetry_2[PlanRetry_2.size() - 2].pose) <= 0.872664626
+        ) // <= 50 degree
+      {
+        for(int i = 0; i<((int)PlanRetry_2.size()-1); i++)
+        {
+            double theta = calculateAngle(PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y, 
+                                          PlanRetry_2[i+1].pose.position.x, PlanRetry_2[i+1].pose.position.y);
+            PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);   
+        }
+        PlanRetry_2.back().pose.orientation = pose_B.pose.orientation;
+      }
+      else if(computeDeltaAngleStartOfPlan(getYaw(pose_A.pose.orientation.x, pose_A.pose.orientation.y, pose_A.pose.orientation.z, pose_A.pose.orientation.w),
+        PlanRetry_2.front().pose, PlanRetry_2[1].pose) >= 2.2689280276 &&  
+        computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
+        PlanRetry_2.back().pose, PlanRetry_2[PlanRetry_2.size() - 2].pose) >= 2.2689280276) // >= 130 degree
+      {
+        for(int i = (int)PlanRetry_2.size() -1; i>0; i--)
+        {
+            double theta = calculateAngle(PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y, 
+                                          PlanRetry_2[i-1].pose.position.x, PlanRetry_2[i-1].pose.position.y);
+            PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);   
+        }
+        PlanRetry_2.front().pose.orientation = PlanRetry_2[1].pose.orientation;
+      }
+      else
+      {
+        ROS_WARN("Pose_A yaw or Pose_B yaw is invalid value");
+        return false;
+      }
+    }
+    else
+    {
+      ROS_WARN("Curve AB is too short, cannot compute plan");
+      return false;
+    }
+    ros::Time plan_time = ros::Time::now();
+    if(!PlanRetry_1.empty()&&!PlanRetry_2.empty())
+    {
+      for(int i = 0; i < (int)PlanRetry_1.size(); i++)
+      {
+        PlanRetry_1[i].header.stamp = plan_time;
+        result_plan.push_back(PlanRetry_1[i]);
+      }
+      for(int i = 0; i < (int)PlanRetry_2.size(); i++)
+      {
+        PlanRetry_2[i].header.stamp = plan_time;
+        PlanRetry_2[i].header.frame_id = PlanRetry_1.front().header.frame_id;;
+        result_plan.push_back(PlanRetry_2[i]);
+      }
+      result = true;
+    }
+    return result;
+  }
+
   bool CustomPlanner::isThetaValid(double theta)
   {
     bool result = false;
@@ -1264,6 +1443,29 @@ namespace custom_planner
       double yC = endPose.getY() + d*sin(theta);
       double xBC = xC-endPose.getX();
       double yBC = yC-endPose.getY();
+      double dAB = sqrt(xAB*xAB + yAB*yAB);
+      double cos_a = (xAB*xBC + yAB*yBC)/(dAB*d);
+      delta_angle = acos(cos_a);
+      // delta_angle = delta_angle*180/M_PI;
+      // ROS_WARN("xC: %f, yC: %f", xC, yC);
+      // ROS_WARN("dAB: %f", dAB);
+      // ROS_WARN("delta_angle: %f", delta_angle);
+    }  
+    return delta_angle;
+  }
+
+  double CustomPlanner::computeDeltaAngleEndOfPlan(double theta, geometry_msgs::Pose& endPose, geometry_msgs::Pose& prev_Pose)
+  {
+    double delta_angle = 0;
+    if(isThetaValid(theta))
+    {
+      double xAB =endPose.position.x-prev_Pose.position.x;
+      double yAB = endPose.position.y-prev_Pose.position.y;
+      double d = sqrt(xAB*xAB + yAB*yAB);
+      double xC =endPose.position.x + d*cos(theta);
+      double yC = endPose.position.y + d*sin(theta);
+      double xBC = xC-endPose.position.x;
+      double yBC = yC-endPose.position.y;
       double dAB = sqrt(xAB*xAB + yAB*yAB);
       double cos_a = (xAB*xBC + yAB*yBC)/(dAB*d);
       delta_angle = acos(cos_a);
@@ -1343,6 +1545,53 @@ namespace custom_planner
       // ROS_WARN("delta_angle: %f", delta_angle);
     }   
     return delta_angle;
+  }
+
+  double CustomPlanner::computeDeltaAngleStartOfPlan(double theta, geometry_msgs::Pose& startPose, geometry_msgs::Pose& next_Pose)
+  {
+    double delta_angle = 0;
+    if(isThetaValid(theta))
+    {
+      double xAB = next_Pose.position.x - startPose.position.x;
+      double yAB = next_Pose.position.y - startPose.position.y;
+      double d = sqrt(xAB*xAB + yAB*yAB);
+      double xC = startPose.position.x + d*cos(theta);
+      double yC = startPose.position.y + d*sin(theta);
+      double xAC = xC-startPose.position.x;
+      double yAC = yC-startPose.position.y;
+      double dAB = sqrt(xAB*xAB + yAB*yAB);
+      double cos_a = (xAB*xAC + yAB*yAC)/(dAB*d);
+      delta_angle = acos(cos_a);
+      // delta_angle = delta_angle*180/M_PI;
+      // ROS_WARN("xC: %f, yC: %f", xC, yC);
+      // ROS_WARN("dAB: %f", dAB);
+      // ROS_WARN("delta_angle: %f", delta_angle);
+    }   
+    return delta_angle;    
+  }
+
+  double CustomPlanner::computeDeltaAngleStartOfPlan(double thetaEnd, double thetaStart, geometry_msgs::Pose& Pose)
+  {
+    double delta_angle = 0;
+    if(isThetaValid(thetaEnd)&&isThetaValid(thetaStart))
+    {
+      double d = 1;
+      double xA = Pose.position.x;
+      double yA = Pose.position.y;
+      double xB = xA + d*cos(thetaEnd);
+      double yB = yA + d*sin(thetaEnd);
+      double xAB = xB - xA;
+      double yAB = yB - yA;
+      double xC = xA + d*cos(thetaStart);
+      double yC = yA + d*sin(thetaStart);
+      double xAC = xC - xA;
+      double yAC = yC - yA;
+      double cos_a = (xAB*xAC + yAB*yAC)/(d*d);
+      delta_angle = acos(cos_a);
+      // delta_angle = delta_angle*180/M_PI;
+      // ROS_WARN("delta_angle: %f", delta_angle);
+    }   
+    return delta_angle;  
   }
 
   double CustomPlanner::computeDeltaAngle(Pose& Pose1, Pose& Pose2)

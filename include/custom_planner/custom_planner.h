@@ -148,6 +148,10 @@ private:
 
   bool makePlanWithOrder(vda5050_msgs::Order msg, uint8_t& status, string& message);
 
+  bool makePlanForRetry(std::vector<geometry_msgs::PoseStamped>& current_plan, 
+    geometry_msgs::PoseStamped& pose_A, geometry_msgs::PoseStamped& pose_B, 
+    geometry_msgs::PoseStamped& pose_C, std::vector<geometry_msgs::PoseStamped>& result_plan);
+
   bool isThetaValid(double theta);
 
   bool curveIsValid(int degree, const std::vector<double> &knot_vector,
@@ -157,7 +161,13 @@ private:
 
   double computeDeltaAngleStartNode(double thetaEnd, double thetaStart, Pose& Pose);
 
+  double computeDeltaAngleStartOfPlan(double theta, geometry_msgs::Pose& startPose, geometry_msgs::Pose& next_Pose);
+
+  double computeDeltaAngleStartOfPlan(double thetaEnd, double thetaStart, geometry_msgs::Pose& Pose);
+
   double computeDeltaAngleEndNode(double theta, Pose& endPose, Pose& prev_Pose);
+
+  double computeDeltaAngleEndOfPlan(double theta, geometry_msgs::Pose& endPose, geometry_msgs::Pose& prev_Pose);
 
   void setYawAllPosesOnEdge(vector<Pose>& posesOnEdge, bool reverse);
 
