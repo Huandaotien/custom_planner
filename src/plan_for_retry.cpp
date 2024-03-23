@@ -87,7 +87,8 @@ double computeDeltaAngleEndOfPlan(double theta, geometry_msgs::Pose& endPose, ge
     return delta_angle;
 }
 
-// Hàm gọi make plan : tạo tuyến đường đi quay lại điểm retry có trong plan hiện tại và đi tới điểm goal mới theo cung tròn.
+// Hàm gọi make plan : tạo tuyến đường đi quay lại điểm retry có trong plan hiện tại và đi tới điểm goal mới theo cung tròn. 
+// khi tạo thành công plan thì hàm trả về True, không thành công thì trả về False và có hiện cảnh báo nguyên nhân.
     // current_plan: vector chứa plan hiện tại
     // pose_A: điểm quay lại để retry
     // pose_B: điểm goal mới, có hướng thẳng với palet hiện tại
@@ -257,6 +258,11 @@ bool makePlanForRetry(std::vector<geometry_msgs::PoseStamped>& current_plan,
     }
     return result;
 }
+
+// Hàm Tìm tâm C của cung tròn AB khi biết Pose tại điểm B: khi tìm thành công điểm C thì hàm trả về True
+    // pose_A: điểm start của cung tròn
+    // pose_B: điểm đích trên cung tròn
+    // pose_C: tâm của cung tròn AB (kết quả)
 
 bool findCenterOfCurve(geometry_msgs::PoseStamped& pose_A, geometry_msgs::PoseStamped& pose_B, geometry_msgs::PoseStamped& pose_C)
 {
