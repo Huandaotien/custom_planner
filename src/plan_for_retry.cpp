@@ -257,3 +257,24 @@ bool makePlanForRetry(std::vector<geometry_msgs::PoseStamped>& current_plan,
     }
     return result;
 }
+
+bool findCenterOfCurve(geometry_msgs::PoseStamped& pose_A, geometry_msgs::PoseStamped& pose_B, geometry_msgs::PoseStamped& pose_C)
+{
+  double x_R = pose_A.pose.position.x;
+  double y_R = pose_A.pose.position.y;
+  double x_G = pose_B.pose.position.x;
+  double y_G = pose_B.pose.position.y;
+  double phi_vG = getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w);
+  double x_H = (x_R+x_G)/2;
+  double y_H = (y_R+y_G)/2;
+  double m_vG = tan(phi_vG);
+  double m_G_n_vG = -1/m_vG;
+  double b_G_n_vG = y_G-m_G_n_vG*x_G;
+  double m_RG =(y_G-y_R)/(x_G-x_R);
+  double b_RG = y_R-m_RG*x_R;
+  double m_H_n_RG = -1/m_RG;
+  double b_H_n_RG = y_H-m_H_n_RG*x_H;
+  pose_C.pose.position.x = (b_H_n_RG-b_G_n_vG)/(m_G_n_vG-m_H_n_RG);
+  pose_C.pose.position.y = (b_H_n_RG*m_G_n_vG-b_G_n_vG*m_H_n_RG)/(m_G_n_vG-m_H_n_RG);
+  return true;
+}

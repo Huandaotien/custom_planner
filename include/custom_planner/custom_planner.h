@@ -152,6 +152,8 @@ private:
     geometry_msgs::PoseStamped& pose_A, geometry_msgs::PoseStamped& pose_B, 
     geometry_msgs::PoseStamped& pose_C, std::vector<geometry_msgs::PoseStamped>& result_plan);
 
+  bool findCenterOfCurve(geometry_msgs::PoseStamped& pose_A, geometry_msgs::PoseStamped& pose_B, geometry_msgs::PoseStamped& pose_C);
+
   bool isThetaValid(double theta);
 
   bool curveIsValid(int degree, const std::vector<double> &knot_vector,
