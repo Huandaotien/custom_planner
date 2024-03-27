@@ -96,9 +96,11 @@ double computeDeltaAngleEndOfPlan(double theta, geometry_msgs::Pose& endPose, ge
     // result_plan: vector chứa plan kết quả
 
 bool makePlanForRetry(std::vector<geometry_msgs::PoseStamped>& current_plan, 
-    geometry_msgs::PoseStamped& pose_A, geometry_msgs::PoseStamped& pose_B, 
+    int indexOfPoseA, geometry_msgs::PoseStamped& pose_B, 
     geometry_msgs::PoseStamped& pose_C, std::vector<geometry_msgs::PoseStamped>& result_plan)
   {    
+    geometry_msgs::PoseStamped pose_A;
+    pose_A = current_plan[indexOfPoseA];
     if(current_plan.empty()||current_plan.size()<2)
     {
       ROS_WARN("current_plan is empty");
@@ -116,25 +118,13 @@ bool makePlanForRetry(std::vector<geometry_msgs::PoseStamped>& current_plan,
       return false;
     }
     bool result = false;
-    int indexOfPoseA = 0;
     vector<geometry_msgs::PoseStamped> PlanRetry_1;
     vector<geometry_msgs::PoseStamped> PlanRetry_2;
 
     // Tính ra PlanRetry_1 điểm retry tại Pose_A
-    for(int i = ((int)current_plan.size()-1); i>=0; i--)
-    {
-      if(pose_A.pose==current_plan[i].pose)
-      {
-        indexOfPoseA = i;
-        ROS_INFO("Found pose_A at element number: %d in current plan",indexOfPoseA);
-        PlanRetry_1.assign(current_plan.begin()+i, current_plan.end());
-      }
-      else
-      {
-        ROS_WARN("Not find pose_A in current plan");
-        return false;
-      }      
-    }
+ 
+    PlanRetry_1.assign(current_plan.begin()+indexOfPoseA, current_plan.end());
+
     if(!PlanRetry_1.empty()){
       std::reverse(PlanRetry_1.begin(), PlanRetry_1.end());
     }

@@ -211,7 +211,7 @@ namespace custom_planner
       string pathway_fullfilename = userParams_->directory_to_save_paths + "/" + userParams_->pathway_filename;        
       if(loadPathwayData(pathway_fullfilename)) cout<< "Success in load pathway file: "<<pathway_fullfilename<<endl;
       else std::cout<<pathway_fullfilename<<" is not existed"<<std::endl;
-      // order_msg_sub_ = private_nh.subscribe("/order",1000,&CustomPlanner::order_msg_handle,this);
+      order_msg_sub_ = private_nh.subscribe("/order",1000,&CustomPlanner::order_msg_handle,this);
       service_servers_.push_back(p_nh.advertiseService("set_plan_with_order", &CustomPlanner::HandleSetPlanWithOrder, this));
 
       // vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>> control_point;
@@ -816,6 +816,7 @@ namespace custom_planner
     if(makePlanWithOrder(*msg, status, message))
     {
       ROS_INFO("Success to make plan with order");
+      test_print_plan_result();
     }
     else
     {
@@ -1637,6 +1638,21 @@ namespace custom_planner
       // ROS_WARN("delta_angle: %f", delta_angle);
     }   
     return delta_angle;
+  }
+
+  void CustomPlanner::test_print_plan_result()
+  {
+    for (unsigned int i = 0; i < posesOnPathWay.size(); i++)
+    {
+      if(i==0) std::cerr<<"{ ";
+      else if(i>0&&i<(posesOnPathWay.size()-1))
+      std::cerr<<"{"<<posesOnPathWay[i].getX()<<", "<<posesOnPathWay[i].getY()<<", "<<posesOnPathWay[i].getYaw()<<"}"<<","<<std::endl;
+      else if(i==(posesOnPathWay.size()-1))
+      {
+        std::cerr<<"{"<<posesOnPathWay[i].getX()<<", "<<posesOnPathWay[i].getY()<<", "<<posesOnPathWay[i].getYaw()<<"} "<<"}"<<std::endl;
+      }
+    }
+    ROS_WARN("done print");
   }
 
 };

@@ -175,6 +175,8 @@ private:
 
   double computeDeltaAngle(Pose& Pose1, Pose& Pose2);
 
+  void test_print_plan_result();
+
   Spline_Inf* input_spline_inf;
   Curve_common* CurveDesign;
   Pathway* pathway;   
