@@ -149,10 +149,14 @@ private:
   bool makePlanWithOrder(vda5050_msgs::Order msg, uint8_t& status, string& message);
 
   bool makePlanForRetry(std::vector<geometry_msgs::PoseStamped>& current_plan, 
-    geometry_msgs::PoseStamped& pose_A, geometry_msgs::PoseStamped& pose_B, 
+    int indexOfPoseA, geometry_msgs::PoseStamped& pose_B, 
     geometry_msgs::PoseStamped& pose_C, std::vector<geometry_msgs::PoseStamped>& result_plan);
+  
+  bool makeCurvePlan(Pose& pose_A, Pose& pose_B, std::vector<Pose>& result_plan);
 
   bool findCenterOfCurve(geometry_msgs::PoseStamped& pose_A, geometry_msgs::PoseStamped& pose_B, geometry_msgs::PoseStamped& pose_C);
+
+  bool findCenterOfCurve(Pose& pose_A, Pose& pose_B, Pose& pose_C);
 
   bool isThetaValid(double theta);
 
@@ -174,6 +178,9 @@ private:
   void setYawAllPosesOnEdge(vector<Pose>& posesOnEdge, bool reverse);
 
   double computeDeltaAngle(Pose& Pose1, Pose& Pose2);
+
+  vector<Pose> divideSegment(Pose& A, Pose& B, double d);
+  vector<geometry_msgs::PoseStamped> divideSegment(geometry_msgs::PoseStamped& A, geometry_msgs::PoseStamped& B, double d);
 
   void test_print_plan_result();
 

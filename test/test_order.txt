@@ -3,46 +3,50 @@ Edge: 0
 Node: 0 -> 1
 start node: 1.9327, 6.01795, 10
 end node: 5.126, 10.666, 10
-control_point.push_back(Eigen::Vector3d(1.9327, 6.01795, 0));
-control_point.push_back(Eigen::Vector3d(2.02209, 7.8, 0));
-control_point.push_back(Eigen::Vector3d(2.337, 10.0728, 0));
-control_point.push_back(Eigen::Vector3d(5.126, 10.666, 0));
-std::vector<double> knot_vector = {0, 0, 0, 0.51, 1, 1, 1};
-std::vector<double> weight_vector = {1, 1, 1, 1};
+control_point:
+    1.9327, 6.01795,
+    2.02209, 7.8,
+    2.337, 10.0728,
+    5.126, 10.666
+knot_vector = {0, 0, 0, 0.51, 1, 1, 1};
+weight_vector = {1, 1, 1, 1};
 
 Edge: 1
 Node: 1 -> 2
 start node: 5.126, 10.666, 10
 end node: 11.96118, 8.934044, 10
-control_point.push_back(Eigen::Vector3d(5.126, 10.666, 0));
-control_point.push_back(Eigen::Vector3d(7.858169, 10.5647, 0));
-control_point.push_back(Eigen::Vector3d(8.917483, 9.2870521, 0));
-control_point.push_back(Eigen::Vector3d(11.96118, 8.934044, 0));
-std::vector<double> knot_vector = {0, 0, 0, 0.51, 1, 1, 1};
-std::vector<double> weight_vector = {1, 1, 1, 1};
+control_point:
+    5.126, 10.666
+    7.858169, 10.5647
+    8.917483, 9.2870521
+    11.96118, 8.934044
+knot_vector = {0, 0, 0, 0.51, 1, 1, 1};
+weight_vector = {1, 1, 1, 1};
 
 Edge: 2
 Node: 2 -> 3
 start node: 11.96118, 8.934044, 10
 end node: 18.383729, 10.68481159, 10
-control_point.push_back(Eigen::Vector3d(11.96118, 8.934044, 0));
-control_point.push_back(Eigen::Vector3d(13.78788, 8.718527, 0));
-control_point.push_back(Eigen::Vector3d(16.475471, 8.812618, 0));
-control_point.push_back(Eigen::Vector3d(18.201097, 9.986795, 0));
-control_point.push_back(Eigen::Vector3d(18.383729, 10.68481159, 0));
-std::vector<double> knot_vector = {0, 0, 0, 0.429, 0.51, 1, 1, 1};
-std::vector<double> weight_vector = {1, 1, 1, 1, 1};
+control_point:
+    11.96118, 8.934044
+    13.78788, 8.718527
+    16.475471, 8.812618
+    18.201097, 9.986795
+    18.383729, 10.68481159
+knot_vector = {0, 0, 0, 0.429, 0.51, 1, 1, 1};
+weight_vector = {1, 1, 1, 1, 1};
 
 Edge: 3
 Node: 3 -> 4
 start node: 18.383729, 10.68481159, 10
-end node: 18.328079, 5.4313039, 1.5707963268
-control_point.push_back(Eigen::Vector3d(18.383729, 10.68481159, 0));
-control_point.push_back(Eigen::Vector3d(18.34523, 9.21587, 0));
-control_point.push_back(Eigen::Vector3d(18.31081, 7.40332, 0));
-control_point.push_back(Eigen::Vector3d(18.328079, 5.4313039, 0));
-std::vector<double> knot_vector = {0, 0, 0, 0.5, 1, 1, 1};
-std::vector<double> weight_vector = {1, 1, 1, 1};
+end node: 18.328079, 5.4313039, 1.5707963268\
+control_point:
+    18.383729, 10.68481159
+    18.34523, 9.21587
+    18.31081, 7.40332
+    18.328079, 5.4313039
+knot_vector = {0, 0, 0, 0.5, 1, 1, 1};
+weight_vector = {1, 1, 1, 1};
 
 
 

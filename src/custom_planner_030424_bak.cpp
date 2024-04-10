@@ -162,15 +162,15 @@ namespace custom_planner
       bool ret;
       try
       {
-        // ret = env_->InitializeEnv(costmap_ros_->getCostmap()->getSizeInCellsX(), // width
-        //                           costmap_ros_->getCostmap()->getSizeInCellsY(), // height
-        //                           0,                                             // mapdata
-        //                           0, 0, 0,                                       // start (x, y, theta, t)
-        //                           0, 0, 0,                                       // goal (x, y, theta)
-        //                           0, 0, 0,                                       // goal tolerance
-        //                           perimeterptsV, costmap_ros_->getCostmap()->getResolution(), nominalvel_mpersecs,
-        //                           timetoturn45degsinplace_secs, obst_cost_thresh,
-        //                           primitive_filename_.c_str());
+        ret = env_->InitializeEnv(costmap_ros_->getCostmap()->getSizeInCellsX(), // width
+                                  costmap_ros_->getCostmap()->getSizeInCellsY(), // height
+                                  0,                                             // mapdata
+                                  0, 0, 0,                                       // start (x, y, theta, t)
+                                  0, 0, 0,                                       // goal (x, y, theta)
+                                  0, 0, 0,                                       // goal tolerance
+                                  perimeterptsV, costmap_ros_->getCostmap()->getResolution(), nominalvel_mpersecs,
+                                  timetoturn45degsinplace_secs, obst_cost_thresh,
+                                  primitive_filename_.c_str());
         current_env_width_ = costmap_ros_->getCostmap()->getSizeInCellsX();
         current_env_height_ = costmap_ros_->getCostmap()->getSizeInCellsY();        
       }
@@ -179,30 +179,30 @@ namespace custom_planner
         ROS_ERROR("SBPL encountered a fatal exception: %s", e->what());
         ret = false;
       }
-      // if (!ret)
-      // {
-      //   ROS_ERROR("SBPL initialization failed!");
-      //   exit(1);
-      // }
-      // for (ssize_t ix(0); ix < costmap_ros_->getCostmap()->getSizeInCellsX(); ++ix)
-      //   for (ssize_t iy(0); iy < costmap_ros_->getCostmap()->getSizeInCellsY(); ++iy)
-      //     env_->UpdateCost(ix, iy, costMapCostToSBPLCost(costmap_ros_->getCostmap()->getCost(ix, iy)));
+      if (!ret)
+      {
+        ROS_ERROR("SBPL initialization failed!");
+        exit(1);
+      }
+      for (ssize_t ix(0); ix < costmap_ros_->getCostmap()->getSizeInCellsX(); ++ix)
+        for (ssize_t iy(0); iy < costmap_ros_->getCostmap()->getSizeInCellsY(); ++iy)
+          env_->UpdateCost(ix, iy, costMapCostToSBPLCost(costmap_ros_->getCostmap()->getCost(ix, iy)));
 
-      // if ("ARAPlanner" == planner_type_)
-      // {
-      //   ROS_INFO("Planning with ARA*");
-      //   planner_ = new ARAPlanner(env_, forward_search_);
-      // }
-      // else if ("ADPlanner" == planner_type_)
-      // {
-      //   ROS_INFO("Planning with AD*");
-      //   planner_ = new ADPlanner(env_, forward_search_);
-      // }
-      // else
-      // {
-      //   ROS_ERROR("ARAPlanner and ADPlanner are currently the only supported planners!\n");
-      //   exit(1);
-      // }
+      if ("ARAPlanner" == planner_type_)
+      {
+        ROS_INFO("Planning with ARA*");
+        planner_ = new ARAPlanner(env_, forward_search_);
+      }
+      else if ("ADPlanner" == planner_type_)
+      {
+        ROS_INFO("Planning with AD*");
+        planner_ = new ADPlanner(env_, forward_search_);
+      }
+      else
+      {
+        ROS_ERROR("ARAPlanner and ADPlanner are currently the only supported planners!\n");
+        exit(1);
+      }
 
       ROS_INFO("[custom_planner] Initialized successfully");      
       plan_pub_ = private_nh.advertise<nav_msgs::Path>("plan", 1);
@@ -394,10 +394,10 @@ namespace custom_planner
     if (do_init)
     {
       initialized_ = false;
-      // delete planner_;
-      // planner_ = NULL;
-      // delete env_;
-      // env_ = NULL;
+      delete planner_;
+      planner_ = NULL;
+      delete env_;
+      env_ = NULL;
       initialize(name_, costmap_ros_);
     }
 
@@ -444,402 +444,45 @@ namespace custom_planner
       }   
       
       ros::Time plan_time = ros::Time::now();
-      // Kiểm tra xem điểm Start và End đang cách Plan bao nhiêu
-      double x_Start_to_Plan = posesOnPathWay[start_on_path_index].getX() - start.pose.position.x;
-      double y_Start_to_Plan = posesOnPathWay[start_on_path_index].getY() - start.pose.position.y;
-      double d_Start_to_Plan = sqrt(x_Start_to_Plan*x_Start_to_Plan + y_Start_to_Plan*y_Start_to_Plan);
-      
-      double x_Plan_to_End = goal.pose.position.x - posesOnPathWay.back().getX();
-      double y_Plan_to_End = goal.pose.position.y - posesOnPathWay.back().getY();
-      double d_Plan_to_End = sqrt(x_Plan_to_End*x_Plan_to_End + y_Plan_to_End*y_Plan_to_End);
       
       // create a message for the plan
       nav_msgs::Path gui_path;
-      if(d_Start_to_Plan <= 0.1 && d_Plan_to_End <= 0.1)
+      int gui_path_size = 2 + (int)posesOnPathWay.size() - start_on_path_index;
+      gui_path.poses.resize(gui_path_size);
+      gui_path.header.frame_id = costmap_ros_->getGlobalFrameID();
+      gui_path.header.stamp = plan_time;
+
+      geometry_msgs::PoseStamped pose_start;
+      pose_start.header.stamp = plan_time;
+      pose_start.header.frame_id = costmap_ros_->getGlobalFrameID();
+      pose_start.pose.position.x = start.pose.position.x;
+      pose_start.pose.position.y = start.pose.position.y;
+      pose_start.pose.position.z = start.pose.position.z;
+      pose_start.pose.orientation = start.pose.orientation;
+      plan.push_back(pose_start);
+
+      for (unsigned int i = start_on_path_index; i < posesOnPathWay.size(); i++)
       {
-        int gui_path_size = 2 + (int)posesOnPathWay.size() - start_on_path_index;
-        gui_path.poses.resize(gui_path_size);
-        gui_path.header.frame_id = costmap_ros_->getGlobalFrameID();
-        gui_path.header.stamp = plan_time;
+        geometry_msgs::PoseStamped pose;
+        pose.header.stamp = plan_time;
+        pose.header.frame_id = costmap_ros_->getGlobalFrameID();
 
-        geometry_msgs::PoseStamped pose_start;
-        pose_start.header.stamp = plan_time;
-        pose_start.header.frame_id = costmap_ros_->getGlobalFrameID();
-        pose_start.pose.position.x = start.pose.position.x;
-        pose_start.pose.position.y = start.pose.position.y;
-        pose_start.pose.position.z = start.pose.position.z;
-        pose_start.pose.orientation = start.pose.orientation;
-        plan.push_back(pose_start);
-
-        for (unsigned int i = start_on_path_index; i < posesOnPathWay.size(); i++)
-        {
-          geometry_msgs::PoseStamped pose;
-          pose.header.stamp = plan_time;
-          pose.header.frame_id = costmap_ros_->getGlobalFrameID();
-
-          pose.pose.position.x = posesOnPathWay[i].getX();
-          pose.pose.position.y = posesOnPathWay[i].getY();
-          pose.pose.position.z = 0;
-          pose.pose.orientation = tf::createQuaternionMsgFromYaw(posesOnPathWay[i].getYaw());
-          plan.push_back(pose);
-        }
-
-        geometry_msgs::PoseStamped pose_goal;
-        pose_goal.header.stamp = plan_time;
-        pose_goal.header.frame_id = costmap_ros_->getGlobalFrameID();
-        pose_goal.pose.position.x = goal.pose.position.x;
-        pose_goal.pose.position.y = goal.pose.position.y;
-        pose_goal.pose.position.z = goal.pose.position.z;
-        pose_goal.pose.orientation = goal.pose.orientation;
-        plan.push_back(pose_goal);
+        pose.pose.position.x = posesOnPathWay[i].getX();
+        pose.pose.position.y = posesOnPathWay[i].getY();
+        pose.pose.position.z = 0;
+        pose.pose.orientation = tf::createQuaternionMsgFromYaw(posesOnPathWay[i].getYaw());
+        plan.push_back(pose);
       }
-      else if(d_Start_to_Plan > 0.1 && d_Plan_to_End <= 0.1)
-      {
-        vector<Pose> StartToPlanCurve;
-        Pose pose_A;
-        pose_A.setX(start.pose.position.x);
-        pose_A.setY(start.pose.position.y);
-        pose_A.setYaw(getYaw(start.pose.orientation.x, start.pose.orientation.y, start.pose.orientation.z, start.pose.orientation.w));
-        if(makeCurvePlan(pose_A, posesOnPathWay[start_on_path_index],StartToPlanCurve))
-        {
-          int gui_path_size = 1 + (int)StartToPlanCurve.size() - 1 + (int)posesOnPathWay.size() - start_on_path_index;
-          gui_path.poses.resize(gui_path_size);
-          gui_path.header.frame_id = costmap_ros_->getGlobalFrameID();
-          gui_path.header.stamp = plan_time;
 
-          for (unsigned int i = 0; i < ((int)StartToPlanCurve.size() - 1); i++)
-          {
-            geometry_msgs::PoseStamped pose;
-            pose.header.stamp = plan_time;
-            pose.header.frame_id = costmap_ros_->getGlobalFrameID();
+      geometry_msgs::PoseStamped pose_goal;
+      pose_goal.header.stamp = plan_time;
+      pose_goal.header.frame_id = costmap_ros_->getGlobalFrameID();
+      pose_goal.pose.position.x = goal.pose.position.x;
+      pose_goal.pose.position.y = goal.pose.position.y;
+      pose_goal.pose.position.z = goal.pose.position.z;
+      pose_goal.pose.orientation = goal.pose.orientation;
+      plan.push_back(pose_goal);
 
-            pose.pose.position.x = StartToPlanCurve[i].getX();
-            pose.pose.position.y = StartToPlanCurve[i].getY();
-            pose.pose.position.z = 0;
-            pose.pose.orientation = tf::createQuaternionMsgFromYaw(StartToPlanCurve[i].getYaw());
-            plan.push_back(pose);
-          }
-          for (unsigned int i = start_on_path_index; i < posesOnPathWay.size(); i++)
-          {
-            geometry_msgs::PoseStamped pose;
-            pose.header.stamp = plan_time;
-            pose.header.frame_id = costmap_ros_->getGlobalFrameID();
-
-            pose.pose.position.x = posesOnPathWay[i].getX();
-            pose.pose.position.y = posesOnPathWay[i].getY();
-            pose.pose.position.z = 0;
-            pose.pose.orientation = tf::createQuaternionMsgFromYaw(posesOnPathWay[i].getYaw());
-            plan.push_back(pose);
-          }
-          geometry_msgs::PoseStamped pose_goal;
-          pose_goal.header.stamp = plan_time;
-          pose_goal.header.frame_id = costmap_ros_->getGlobalFrameID();
-          pose_goal.pose.position.x = goal.pose.position.x;
-          pose_goal.pose.position.y = goal.pose.position.y;
-          pose_goal.pose.position.z = goal.pose.position.z;
-          pose_goal.pose.orientation = goal.pose.orientation;
-          plan.push_back(pose_goal);
-        }
-        else
-        {
-          int gui_path_size = 2 + (int)posesOnPathWay.size() - start_on_path_index;
-          gui_path.poses.resize(gui_path_size);
-          gui_path.header.frame_id = costmap_ros_->getGlobalFrameID();
-          gui_path.header.stamp = plan_time;
-
-          geometry_msgs::PoseStamped pose_start;
-          pose_start.header.stamp = plan_time;
-          pose_start.header.frame_id = costmap_ros_->getGlobalFrameID();
-          pose_start.pose.position.x = start.pose.position.x;
-          pose_start.pose.position.y = start.pose.position.y;
-          pose_start.pose.position.z = start.pose.position.z;
-          pose_start.pose.orientation = start.pose.orientation;
-          plan.push_back(pose_start);
-
-          for (unsigned int i = start_on_path_index; i < posesOnPathWay.size(); i++)
-          {
-            geometry_msgs::PoseStamped pose;
-            pose.header.stamp = plan_time;
-            pose.header.frame_id = costmap_ros_->getGlobalFrameID();
-
-            pose.pose.position.x = posesOnPathWay[i].getX();
-            pose.pose.position.y = posesOnPathWay[i].getY();
-            pose.pose.position.z = 0;
-            pose.pose.orientation = tf::createQuaternionMsgFromYaw(posesOnPathWay[i].getYaw());
-            plan.push_back(pose);
-          }
-          geometry_msgs::PoseStamped pose_goal;
-          pose_goal.header.stamp = plan_time;
-          pose_goal.header.frame_id = costmap_ros_->getGlobalFrameID();
-          pose_goal.pose.position.x = goal.pose.position.x;
-          pose_goal.pose.position.y = goal.pose.position.y;
-          pose_goal.pose.position.z = goal.pose.position.z;
-          pose_goal.pose.orientation = goal.pose.orientation;
-          plan.push_back(pose_goal);
-        }
-      }
-      else if(d_Start_to_Plan <= 0.1 && d_Plan_to_End > 0.1)
-      {
-        vector<Pose> PlanToEndCurve;
-        Pose pose_B;
-        pose_B.setX(goal.pose.position.x);
-        pose_B.setY(goal.pose.position.y);
-        pose_B.setYaw(getYaw(goal.pose.orientation.x, goal.pose.orientation.y, goal.pose.orientation.z, goal.pose.orientation.w));
-        if(makeCurvePlan(posesOnPathWay.back(), pose_B, PlanToEndCurve))
-        {
-          int gui_path_size = 1 + (int)PlanToEndCurve.size() - 1 + (int)posesOnPathWay.size() - start_on_path_index;
-          gui_path.poses.resize(gui_path_size);
-          gui_path.header.frame_id = costmap_ros_->getGlobalFrameID();
-          gui_path.header.stamp = plan_time;
-          
-          geometry_msgs::PoseStamped pose_start;
-          pose_start.header.stamp = plan_time;
-          pose_start.header.frame_id = costmap_ros_->getGlobalFrameID();
-          pose_start.pose.position.x = start.pose.position.x;
-          pose_start.pose.position.y = start.pose.position.y;
-          pose_start.pose.position.z = start.pose.position.z;
-          pose_start.pose.orientation = start.pose.orientation;
-          plan.push_back(pose_start);
-
-          for (unsigned int i = start_on_path_index; i < posesOnPathWay.size(); i++)
-          {
-            geometry_msgs::PoseStamped pose;
-            pose.header.stamp = plan_time;
-            pose.header.frame_id = costmap_ros_->getGlobalFrameID();
-
-            pose.pose.position.x = posesOnPathWay[i].getX();
-            pose.pose.position.y = posesOnPathWay[i].getY();
-            pose.pose.position.z = 0;
-            pose.pose.orientation = tf::createQuaternionMsgFromYaw(posesOnPathWay[i].getYaw());
-            plan.push_back(pose);
-          }
-          for (unsigned int i = 1; i < (int)PlanToEndCurve.size(); i++)
-          {
-            geometry_msgs::PoseStamped pose;
-            pose.header.stamp = plan_time;
-            pose.header.frame_id = costmap_ros_->getGlobalFrameID();
-
-            pose.pose.position.x = PlanToEndCurve[i].getX();
-            pose.pose.position.y = PlanToEndCurve[i].getY();
-            pose.pose.position.z = 0;
-            pose.pose.orientation = tf::createQuaternionMsgFromYaw(PlanToEndCurve[i].getYaw());
-            plan.push_back(pose);
-          }
-        }
-        else
-        {
-          int gui_path_size = 2 + (int)posesOnPathWay.size() - start_on_path_index;
-          gui_path.poses.resize(gui_path_size);
-          gui_path.header.frame_id = costmap_ros_->getGlobalFrameID();
-          gui_path.header.stamp = plan_time;
-
-          geometry_msgs::PoseStamped pose_start;
-          pose_start.header.stamp = plan_time;
-          pose_start.header.frame_id = costmap_ros_->getGlobalFrameID();
-          pose_start.pose.position.x = start.pose.position.x;
-          pose_start.pose.position.y = start.pose.position.y;
-          pose_start.pose.position.z = start.pose.position.z;
-          pose_start.pose.orientation = start.pose.orientation;
-          plan.push_back(pose_start);
-
-          for (unsigned int i = start_on_path_index; i < posesOnPathWay.size(); i++)
-          {
-            geometry_msgs::PoseStamped pose;
-            pose.header.stamp = plan_time;
-            pose.header.frame_id = costmap_ros_->getGlobalFrameID();
-
-            pose.pose.position.x = posesOnPathWay[i].getX();
-            pose.pose.position.y = posesOnPathWay[i].getY();
-            pose.pose.position.z = 0;
-            pose.pose.orientation = tf::createQuaternionMsgFromYaw(posesOnPathWay[i].getYaw());
-            plan.push_back(pose);
-          }
-          geometry_msgs::PoseStamped pose_goal;
-          pose_goal.header.stamp = plan_time;
-          pose_goal.header.frame_id = costmap_ros_->getGlobalFrameID();
-          pose_goal.pose.position.x = goal.pose.position.x;
-          pose_goal.pose.position.y = goal.pose.position.y;
-          pose_goal.pose.position.z = goal.pose.position.z;
-          pose_goal.pose.orientation = goal.pose.orientation;
-          plan.push_back(pose_goal);
-        }
-      }
-      else
-      {
-        vector<Pose> StartToPlanCurve;
-        Pose pose_A;
-        pose_A.setX(start.pose.position.x);
-        pose_A.setY(start.pose.position.y);
-        pose_A.setYaw(getYaw(start.pose.orientation.x, start.pose.orientation.y, start.pose.orientation.z, start.pose.orientation.w));
-        vector<Pose> PlanToEndCurve;
-        Pose pose_B;
-        pose_B.setX(goal.pose.position.x);
-        pose_B.setY(goal.pose.position.y);
-        pose_B.setYaw(getYaw(goal.pose.orientation.x, goal.pose.orientation.y, goal.pose.orientation.z, goal.pose.orientation.w));
-        if(makeCurvePlan(pose_A, posesOnPathWay[start_on_path_index],StartToPlanCurve) && 
-           makeCurvePlan(posesOnPathWay.back(), pose_B, PlanToEndCurve))
-        {
-          int gui_path_size = (int)StartToPlanCurve.size() - 1 + (int)PlanToEndCurve.size() - 1 + (int)posesOnPathWay.size() - start_on_path_index;
-          gui_path.poses.resize(gui_path_size);
-          gui_path.header.frame_id = costmap_ros_->getGlobalFrameID();
-          gui_path.header.stamp = plan_time;
-
-          for (unsigned int i = 0; i < ((int)StartToPlanCurve.size() - 1); i++)
-          {
-            geometry_msgs::PoseStamped pose;
-            pose.header.stamp = plan_time;
-            pose.header.frame_id = costmap_ros_->getGlobalFrameID();
-
-            pose.pose.position.x = StartToPlanCurve[i].getX();
-            pose.pose.position.y = StartToPlanCurve[i].getY();
-            pose.pose.position.z = 0;
-            pose.pose.orientation = tf::createQuaternionMsgFromYaw(StartToPlanCurve[i].getYaw());
-            plan.push_back(pose);
-          }
-          for (unsigned int i = start_on_path_index; i < posesOnPathWay.size(); i++)
-          {
-            geometry_msgs::PoseStamped pose;
-            pose.header.stamp = plan_time;
-            pose.header.frame_id = costmap_ros_->getGlobalFrameID();
-
-            pose.pose.position.x = posesOnPathWay[i].getX();
-            pose.pose.position.y = posesOnPathWay[i].getY();
-            pose.pose.position.z = 0;
-            pose.pose.orientation = tf::createQuaternionMsgFromYaw(posesOnPathWay[i].getYaw());
-            plan.push_back(pose);
-          }
-          for (unsigned int i = 1; i < (int)PlanToEndCurve.size(); i++)
-          {
-            geometry_msgs::PoseStamped pose;
-            pose.header.stamp = plan_time;
-            pose.header.frame_id = costmap_ros_->getGlobalFrameID();
-
-            pose.pose.position.x = PlanToEndCurve[i].getX();
-            pose.pose.position.y = PlanToEndCurve[i].getY();
-            pose.pose.position.z = 0;
-            pose.pose.orientation = tf::createQuaternionMsgFromYaw(PlanToEndCurve[i].getYaw());
-            plan.push_back(pose);
-          }
-        }
-        else if(makeCurvePlan(pose_A, posesOnPathWay[start_on_path_index],StartToPlanCurve))
-        {
-          int gui_path_size = 1 + (int)StartToPlanCurve.size() - 1 + (int)posesOnPathWay.size() - start_on_path_index;
-          gui_path.poses.resize(gui_path_size);
-          gui_path.header.frame_id = costmap_ros_->getGlobalFrameID();
-          gui_path.header.stamp = plan_time;
-
-          for (unsigned int i = 0; i < ((int)StartToPlanCurve.size() - 1); i++)
-          {
-            geometry_msgs::PoseStamped pose;
-            pose.header.stamp = plan_time;
-            pose.header.frame_id = costmap_ros_->getGlobalFrameID();
-
-            pose.pose.position.x = StartToPlanCurve[i].getX();
-            pose.pose.position.y = StartToPlanCurve[i].getY();
-            pose.pose.position.z = 0;
-            pose.pose.orientation = tf::createQuaternionMsgFromYaw(StartToPlanCurve[i].getYaw());
-            plan.push_back(pose);
-          }
-          for (unsigned int i = start_on_path_index; i < posesOnPathWay.size(); i++)
-          {
-            geometry_msgs::PoseStamped pose;
-            pose.header.stamp = plan_time;
-            pose.header.frame_id = costmap_ros_->getGlobalFrameID();
-
-            pose.pose.position.x = posesOnPathWay[i].getX();
-            pose.pose.position.y = posesOnPathWay[i].getY();
-            pose.pose.position.z = 0;
-            pose.pose.orientation = tf::createQuaternionMsgFromYaw(posesOnPathWay[i].getYaw());
-            plan.push_back(pose);
-          }
-          geometry_msgs::PoseStamped pose_goal;
-          pose_goal.header.stamp = plan_time;
-          pose_goal.header.frame_id = costmap_ros_->getGlobalFrameID();
-          pose_goal.pose.position.x = goal.pose.position.x;
-          pose_goal.pose.position.y = goal.pose.position.y;
-          pose_goal.pose.position.z = goal.pose.position.z;
-          pose_goal.pose.orientation = goal.pose.orientation;
-          plan.push_back(pose_goal);
-        }
-        else if(makeCurvePlan(posesOnPathWay.back(), pose_B, PlanToEndCurve))
-        {
-          int gui_path_size = 1 + (int)PlanToEndCurve.size() - 1 + (int)posesOnPathWay.size() - start_on_path_index;
-          gui_path.poses.resize(gui_path_size);
-          gui_path.header.frame_id = costmap_ros_->getGlobalFrameID();
-          gui_path.header.stamp = plan_time;
-          
-          geometry_msgs::PoseStamped pose_start;
-          pose_start.header.stamp = plan_time;
-          pose_start.header.frame_id = costmap_ros_->getGlobalFrameID();
-          pose_start.pose.position.x = start.pose.position.x;
-          pose_start.pose.position.y = start.pose.position.y;
-          pose_start.pose.position.z = start.pose.position.z;
-          pose_start.pose.orientation = start.pose.orientation;
-          plan.push_back(pose_start);
-
-          for (unsigned int i = start_on_path_index; i < posesOnPathWay.size(); i++)
-          {
-            geometry_msgs::PoseStamped pose;
-            pose.header.stamp = plan_time;
-            pose.header.frame_id = costmap_ros_->getGlobalFrameID();
-
-            pose.pose.position.x = posesOnPathWay[i].getX();
-            pose.pose.position.y = posesOnPathWay[i].getY();
-            pose.pose.position.z = 0;
-            pose.pose.orientation = tf::createQuaternionMsgFromYaw(posesOnPathWay[i].getYaw());
-            plan.push_back(pose);
-          }
-          for (unsigned int i = 1; i < (int)PlanToEndCurve.size(); i++)
-          {
-            geometry_msgs::PoseStamped pose;
-            pose.header.stamp = plan_time;
-            pose.header.frame_id = costmap_ros_->getGlobalFrameID();
-
-            pose.pose.position.x = PlanToEndCurve[i].getX();
-            pose.pose.position.y = PlanToEndCurve[i].getY();
-            pose.pose.position.z = 0;
-            pose.pose.orientation = tf::createQuaternionMsgFromYaw(PlanToEndCurve[i].getYaw());
-            plan.push_back(pose);
-          }
-        }
-        else
-        {
-          int gui_path_size = 2 + (int)posesOnPathWay.size() - start_on_path_index;
-          gui_path.poses.resize(gui_path_size);
-          gui_path.header.frame_id = costmap_ros_->getGlobalFrameID();
-          gui_path.header.stamp = plan_time;
-
-          geometry_msgs::PoseStamped pose_start;
-          pose_start.header.stamp = plan_time;
-          pose_start.header.frame_id = costmap_ros_->getGlobalFrameID();
-          pose_start.pose.position.x = start.pose.position.x;
-          pose_start.pose.position.y = start.pose.position.y;
-          pose_start.pose.position.z = start.pose.position.z;
-          pose_start.pose.orientation = start.pose.orientation;
-          plan.push_back(pose_start);
-
-          for (unsigned int i = start_on_path_index; i < posesOnPathWay.size(); i++)
-          {
-            geometry_msgs::PoseStamped pose;
-            pose.header.stamp = plan_time;
-            pose.header.frame_id = costmap_ros_->getGlobalFrameID();
-
-            pose.pose.position.x = posesOnPathWay[i].getX();
-            pose.pose.position.y = posesOnPathWay[i].getY();
-            pose.pose.position.z = 0;
-            pose.pose.orientation = tf::createQuaternionMsgFromYaw(posesOnPathWay[i].getYaw());
-            plan.push_back(pose);
-          }
-          geometry_msgs::PoseStamped pose_goal;
-          pose_goal.header.stamp = plan_time;
-          pose_goal.header.frame_id = costmap_ros_->getGlobalFrameID();
-          pose_goal.pose.position.x = goal.pose.position.x;
-          pose_goal.pose.position.y = goal.pose.position.y;
-          pose_goal.pose.position.z = goal.pose.position.z;
-          pose_goal.pose.orientation = goal.pose.orientation;
-          plan.push_back(pose_goal);
-        }
-      }
       gui_path.poses = plan;
       plan_pub_.publish(gui_path);
     }
@@ -1574,171 +1217,150 @@ namespace custom_planner
   }
 
   bool CustomPlanner::makePlanForRetry(std::vector<geometry_msgs::PoseStamped>& current_plan, 
-    int indexOfPoseA, geometry_msgs::PoseStamped& pose_B, 
+    geometry_msgs::PoseStamped& pose_A, geometry_msgs::PoseStamped& pose_B, 
     geometry_msgs::PoseStamped& pose_C, std::vector<geometry_msgs::PoseStamped>& result_plan)
   {    
-    bool result = false;
-    vector<geometry_msgs::PoseStamped> PlanRetry_1;
-    vector<geometry_msgs::PoseStamped> PlanRetry_2;
-
     if(current_plan.empty()||current_plan.size()<2)
     {
       ROS_WARN("current_plan is empty");
       return false;
     }
-
-    geometry_msgs::PoseStamped pose_A;
-    pose_A = current_plan[indexOfPoseA];
+    double xCA = pose_A.pose.position.x - pose_C.pose.position.x;
+    double yCA = pose_A.pose.position.y - pose_C.pose.position.y;
+    double xCB = pose_B.pose.position.x - pose_C.pose.position.x;
+    double yCB = pose_B.pose.position.y - pose_C.pose.position.y;
+    double rCA = sqrt(xCA*xCA + yCA*yCA);
+    double rCB = sqrt(xCB*xCB + yCB*yCB);
+    if(rCA!=rCB)
+    {
+      ROS_WARN("pose_C is not Center of Curve AB");
+      return false;
+    }
+    bool result = false;
+    int indexOfPoseA = 0;
+    vector<geometry_msgs::PoseStamped> PlanRetry_1;
+    vector<geometry_msgs::PoseStamped> PlanRetry_2;
 
     // Tính ra PlanRetry_1 điểm retry tại Pose_A
- 
-    PlanRetry_1.assign(current_plan.begin()+indexOfPoseA, current_plan.end());
-
+    for(int i = ((int)current_plan.size()-1); i>=0; i--)
+    {
+      if(pose_A.pose==current_plan[i].pose)
+      {
+        indexOfPoseA = i;
+        ROS_INFO("Found pose_A at element number: %d in current plan",indexOfPoseA);
+        PlanRetry_1.assign(current_plan.begin()+i, current_plan.end());
+      }
+      else
+      {
+        ROS_WARN("Not find pose_A in current plan");
+        return false;
+      }      
+    }
     if(!PlanRetry_1.empty()){
       std::reverse(PlanRetry_1.begin(), PlanRetry_1.end());
     }
-
     // Tính ra PlanRetry_2 với biên dạng cung tròn đi qua pose_A và pose_B, có tâm tại pose_C
 
-    double xAB = pose_B.pose.position.x - pose_A.pose.position.x;
-    double yAB = pose_B.pose.position.y - pose_A.pose.position.y;
-    double d_AB = sqrt(xAB*xAB + yAB*yAB);
-    if(d_AB<=0.1)
+    double cos_ACB = (xCA*xCB + yCA*yCB)/(rCA*rCB);
+    double angleACB = acos(cos_ACB);
+    double angle_interval = 0.005;
+    // tính góc của vector CA:
+    double angleCA = atan2(yCA, xCA);
+
+    // check thử xem chiều góc quét từ A -> B thì angleCA + delta_angle hay angleCA - delta_angle
+    bool is_increase_angle = false;
+    double check_angle = angleCA + 50*angle_interval*angleACB;
+    double xA1 = pose_C.pose.position.x + rCA*cos(check_angle);
+    double yA1 = pose_C.pose.position.y + rCA*sin(check_angle);
+    double xCA1 = xA1 - pose_C.pose.position.x;
+    double yCA1 = yA1 - pose_C.pose.position.y;
+    double cos_A1CB = (xCA1*xCB + yCA1*yCB)/(rCA*rCB);
+    double angleA1CB = acos(cos_A1CB);
+    if(angleA1CB>angleACB)
+    {
+      is_increase_angle = false;
+    }
+    else if(angleA1CB<angleACB)
+    {
+      is_increase_angle = true;
+    }
+    else
     {
       ROS_WARN("Curve AB is too short, cannot compute plan");
       return false;
     }
-    
-    // nếu hướng của vector AB và hướng của pose_B tạo với nhau một góc ~0 độ hoặc ~180 độ -> cung tròn AB sẽ gần như là một đọan thẳng
-    if((computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-        pose_B.pose, pose_A.pose) >= 3.13 && 
-        computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-        pose_B.pose, pose_A.pose) <= M_PI) ||
-       (computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-        pose_B.pose, pose_A.pose) <= 0.1745 && 
-        computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-        pose_B.pose, pose_A.pose) >= 0))
+    if(is_increase_angle)
     {
-      vector<geometry_msgs::PoseStamped> planSegment_AB;
-      planSegment_AB = divideSegment(pose_A, pose_B, 0.008);
-      PlanRetry_2.assign(planSegment_AB.begin(), planSegment_AB.end());
+      for(double i = 0; i<=1; i+= angle_interval)
+      {
+        double angle_tmp = angleCA + angleACB*i;
+        double xP = pose_C.pose.position.x + rCA*cos(angle_tmp);
+        double yP = pose_C.pose.position.y + rCA*sin(angle_tmp);
+        geometry_msgs::PoseStamped p;
+        p.pose.position.x = xP;
+        p.pose.position.y = yP;
+        p.pose.position.z = 0;
+        PlanRetry_2.push_back(p);
+      }
     }
     else
     {
-      double xCA = pose_A.pose.position.x - pose_C.pose.position.x;
-      double yCA = pose_A.pose.position.y - pose_C.pose.position.y;
-      double xCB = pose_B.pose.position.x - pose_C.pose.position.x;
-      double yCB = pose_B.pose.position.y - pose_C.pose.position.y;
-      double rCA = sqrt(xCA*xCA + yCA*yCA);
-      double rCB = sqrt(xCB*xCB + yCB*yCB);
-      if(abs(rCA-rCB)>0.008)
+      for(double i = 0; i<=1; i+= angle_interval)
       {
-        ROS_WARN("pose_C is not Center of Curve AB");
-        return false;
-      }            
-
-      double cos_ACB = (xCA*xCB + yCA*yCB)/(rCA*rCB);
-      double angleACB = acos(cos_ACB);
-      double angle_interval = 0.005;
-      // tính góc của vector CA:
-      double angleCA = atan2(yCA, xCA);
-
-      // check thử xem chiều góc quét từ A -> B thì angleCA + delta_angle hay angleCA - delta_angle
-      bool is_increase_angle = false;
-      double check_angle = angleCA + 50*angle_interval*angleACB;
-      double xA1 = pose_C.pose.position.x + rCA*cos(check_angle);
-      double yA1 = pose_C.pose.position.y + rCA*sin(check_angle);
-      double xCA1 = xA1 - pose_C.pose.position.x;
-      double yCA1 = yA1 - pose_C.pose.position.y;
-      double cos_A1CB = (xCA1*xCB + yCA1*yCB)/(rCA*rCB);
-      double angleA1CB = acos(cos_A1CB);
-      if(angleA1CB>angleACB)
-      {
-        is_increase_angle = false;
+        double angle_tmp = angleCA - angleACB*i;
+        double xP = pose_C.pose.position.x + rCA*cos(angle_tmp);
+        double yP = pose_C.pose.position.y + rCA*sin(angle_tmp);
+        geometry_msgs::PoseStamped p;
+        p.pose.position.x = xP;
+        p.pose.position.y = yP;
+        p.pose.position.z = 0;
+        PlanRetry_2.push_back(p);
       }
-      else if(angleA1CB<angleACB)
+    }
+    if(!PlanRetry_2.empty()&&PlanRetry_2.size()>2)
+    {
+      for(int i = 0 ; i < PlanRetry_2.size(); i++)
       {
-        is_increase_angle = true;
+        ROS_INFO("Pose %d in PlanRetry : %f, %f", i, PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y);
       }
-      else
+      if(computeDeltaAngleStartOfPlan(getYaw(pose_A.pose.orientation.x, pose_A.pose.orientation.y, pose_A.pose.orientation.z, pose_A.pose.orientation.w),
+        PlanRetry_2.front().pose, PlanRetry_2[1].pose) <= 0.872664626 &&  
+        computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
+        PlanRetry_2.back().pose, PlanRetry_2[PlanRetry_2.size() - 2].pose) <= 0.872664626
+        ) // <= 50 degree
       {
-        ROS_WARN("Curve AB is too short, cannot compute plan");
-        return false;
-      }
-      if(is_increase_angle)
-      {
-        for(double i = 0; i<=1; i+= angle_interval)
+        for(int i = 0; i<((int)PlanRetry_2.size()-1); i++)
         {
-          double angle_tmp = angleCA + angleACB*i;
-          double xP = pose_C.pose.position.x + rCA*cos(angle_tmp);
-          double yP = pose_C.pose.position.y + rCA*sin(angle_tmp);
-          geometry_msgs::PoseStamped p;
-          p.pose.position.x = xP;
-          p.pose.position.y = yP;
-          p.pose.position.z = 0;
-          PlanRetry_2.push_back(p);
+            double theta = calculateAngle(PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y, 
+                                          PlanRetry_2[i+1].pose.position.x, PlanRetry_2[i+1].pose.position.y);
+            PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);   
         }
+        PlanRetry_2.back().pose.orientation = pose_B.pose.orientation;
+      }
+      else if(computeDeltaAngleStartOfPlan(getYaw(pose_A.pose.orientation.x, pose_A.pose.orientation.y, pose_A.pose.orientation.z, pose_A.pose.orientation.w),
+        PlanRetry_2.front().pose, PlanRetry_2[1].pose) >= 2.2689280276 &&  
+        computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
+        PlanRetry_2.back().pose, PlanRetry_2[PlanRetry_2.size() - 2].pose) >= 2.2689280276) // >= 130 degree
+      {
+        for(int i = (int)PlanRetry_2.size() -1; i>0; i--)
+        {
+            double theta = calculateAngle(PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y, 
+                                          PlanRetry_2[i-1].pose.position.x, PlanRetry_2[i-1].pose.position.y);
+            PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);   
+        }
+        PlanRetry_2.front().pose.orientation = PlanRetry_2[1].pose.orientation;
       }
       else
       {
-        for(double i = 0; i<=1; i+= angle_interval)
-        {
-          double angle_tmp = angleCA - angleACB*i;
-          double xP = pose_C.pose.position.x + rCA*cos(angle_tmp);
-          double yP = pose_C.pose.position.y + rCA*sin(angle_tmp);
-          geometry_msgs::PoseStamped p;
-          p.pose.position.x = xP;
-          p.pose.position.y = yP;
-          p.pose.position.z = 0;
-          PlanRetry_2.push_back(p);
-        }
-      }
-      if(!PlanRetry_2.empty()&&PlanRetry_2.size()>2)
-      {
-        for(int i = 0 ; i < PlanRetry_2.size(); i++)
-        {
-          ROS_INFO("Pose %d in PlanRetry : %f, %f", i, PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y);
-        }
-        if(computeDeltaAngleStartOfPlan(getYaw(pose_A.pose.orientation.x, pose_A.pose.orientation.y, pose_A.pose.orientation.z, pose_A.pose.orientation.w),
-          PlanRetry_2.front().pose, PlanRetry_2[1].pose) <= 0.872664626 &&  
-          computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-          PlanRetry_2.back().pose, PlanRetry_2[PlanRetry_2.size() - 2].pose) <= 0.872664626
-          ) // <= 50 degree
-        {
-          for(int i = 0; i<((int)PlanRetry_2.size()-1); i++)
-          {
-              double theta = calculateAngle(PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y, 
-                                            PlanRetry_2[i+1].pose.position.x, PlanRetry_2[i+1].pose.position.y);
-              PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);   
-          }
-          PlanRetry_2.back().pose.orientation = pose_B.pose.orientation;
-        }
-        else if(computeDeltaAngleStartOfPlan(getYaw(pose_A.pose.orientation.x, pose_A.pose.orientation.y, pose_A.pose.orientation.z, pose_A.pose.orientation.w),
-          PlanRetry_2.front().pose, PlanRetry_2[1].pose) >= 2.2689280276 &&  
-          computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-          PlanRetry_2.back().pose, PlanRetry_2[PlanRetry_2.size() - 2].pose) >= 2.2689280276) // >= 130 degree
-        {
-          for(int i = (int)PlanRetry_2.size() -1; i>0; i--)
-          {
-              double theta = calculateAngle(PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y, 
-                                            PlanRetry_2[i-1].pose.position.x, PlanRetry_2[i-1].pose.position.y);
-              PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);   
-          }
-          PlanRetry_2.front().pose.orientation = PlanRetry_2[1].pose.orientation;
-        }
-        else
-        {
-          ROS_WARN("Pose_A yaw or Pose_B yaw is invalid value");
-          return false;
-        }
-      }
-      else
-      {
-        ROS_WARN("Curve AB is too short, cannot compute plan");
+        ROS_WARN("Pose_A yaw or Pose_B yaw is invalid value");
         return false;
       }
     }
-
+    else
+    {
+      ROS_WARN("Curve AB is too short, cannot compute plan");
+      return false;
+    }
     ros::Time plan_time = ros::Time::now();
     if(!PlanRetry_1.empty()&&!PlanRetry_2.empty())
     {
@@ -1750,7 +1372,7 @@ namespace custom_planner
       for(int i = 0; i < (int)PlanRetry_2.size(); i++)
       {
         PlanRetry_2[i].header.stamp = plan_time;
-        PlanRetry_2[i].header.frame_id = PlanRetry_1.front().header.frame_id;
+        PlanRetry_2[i].header.frame_id = PlanRetry_1.front().header.frame_id;;
         result_plan.push_back(PlanRetry_2[i]);
       }
       result = true;
@@ -1760,79 +1382,22 @@ namespace custom_planner
 
   bool CustomPlanner::findCenterOfCurve(geometry_msgs::PoseStamped& pose_A, geometry_msgs::PoseStamped& pose_B, geometry_msgs::PoseStamped& pose_C)
   {
-    // nếu hướng của vector AB và hướng của pose_B tạo với nhau một góc ~0 độ hoặc ~180 độ -> điểm C sẽ gần xấp xỉ với trung điểm của đoạn thẳng AB.
-    if((computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-        pose_B.pose, pose_A.pose) >= 3.13 && 
-        computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-        pose_B.pose, pose_A.pose) <= M_PI) ||
-       (computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-        pose_B.pose, pose_A.pose) <= 0.1745 && 
-        computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-        pose_B.pose, pose_A.pose) >= 0))
-    {
-      pose_C.pose.position.x = (pose_A.pose.position.x + pose_B.pose.position.x)/2;
-      pose_C.pose.position.y = (pose_A.pose.position.y + pose_B.pose.position.y)/2;
-    }
-    else
-    {
-      double x_R = pose_A.pose.position.x;
-      double y_R = pose_A.pose.position.y;
-      double x_G = pose_B.pose.position.x;
-      double y_G = pose_B.pose.position.y;
-      double phi_vG = getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w);
-      double x_H = (x_R+x_G)/2;
-      double y_H = (y_R+y_G)/2;
-      double m_vG = tan(phi_vG);
-      double m_G_n_vG = -1/m_vG;
-      double b_G_n_vG = y_G-m_G_n_vG*x_G;
-      double m_RG =(y_G-y_R)/(x_G-x_R);
-      double b_RG = y_R-m_RG*x_R;
-      double m_H_n_RG = -1/m_RG;
-      double b_H_n_RG = y_H-m_H_n_RG*x_H;
-      pose_C.pose.position.x = (b_H_n_RG-b_G_n_vG)/(m_G_n_vG-m_H_n_RG);
-      pose_C.pose.position.y = (b_H_n_RG*m_G_n_vG-b_G_n_vG*m_H_n_RG)/(m_G_n_vG-m_H_n_RG);
-    }
-    return true;
-  }
-
-  bool CustomPlanner::findCenterOfCurve(Pose& pose_A, Pose& pose_B, Pose& pose_C)
-  {
-    // nếu hướng của vector AB và hướng của pose_B tạo với nhau một góc ~0 độ hoặc ~180 độ -> điểm C sẽ gần xấp xỉ với trung điểm của đoạn thẳng AB.
-    if((computeDeltaAngleEndNode(pose_B.getYaw(),
-        pose_B, pose_A) >= 3.13 && 
-        computeDeltaAngleEndNode(pose_B.getYaw(),
-        pose_B, pose_A) <= M_PI) ||
-       (computeDeltaAngleEndNode(pose_B.getYaw(),
-        pose_B, pose_A) <= 0.1745 && 
-        computeDeltaAngleEndNode(pose_B.getYaw(),
-        pose_B, pose_A) >= 0))
-    {
-      double xC = (pose_A.getX() + pose_B.getX())/2;
-      double yC = (pose_A.getY() + pose_B.getY())/2;
-      pose_C.setX(xC);
-      pose_C.setY(yC);
-    }
-    else
-    {
-      double x_R = pose_A.getX();
-      double y_R = pose_A.getY();
-      double x_G = pose_B.getX();
-      double y_G = pose_B.getY();
-      double phi_vG = pose_B.getYaw();
-      double x_H = (x_R+x_G)/2;
-      double y_H = (y_R+y_G)/2;
-      double m_vG = tan(phi_vG);
-      double m_G_n_vG = -1/m_vG;
-      double b_G_n_vG = y_G-m_G_n_vG*x_G;
-      double m_RG =(y_G-y_R)/(x_G-x_R);
-      double b_RG = y_R-m_RG*x_R;
-      double m_H_n_RG = -1/m_RG;
-      double b_H_n_RG = y_H-m_H_n_RG*x_H;
-      double xC = (b_H_n_RG-b_G_n_vG)/(m_G_n_vG-m_H_n_RG);
-      double yC = (b_H_n_RG*m_G_n_vG-b_G_n_vG*m_H_n_RG)/(m_G_n_vG-m_H_n_RG);
-      pose_C.setX(xC);
-      pose_C.setY(yC);
-    }
+    double x_R = pose_A.pose.position.x;
+    double y_R = pose_A.pose.position.y;
+    double x_G = pose_B.pose.position.x;
+    double y_G = pose_B.pose.position.y;
+    double phi_vG = getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w);
+    double x_H = (x_R+x_G)/2;
+    double y_H = (y_R+y_G)/2;
+    double m_vG = tan(phi_vG);
+    double m_G_n_vG = -1/m_vG;
+    double b_G_n_vG = y_G-m_G_n_vG*x_G;
+    double m_RG =(y_G-y_R)/(x_G-x_R);
+    double b_RG = y_R-m_RG*x_R;
+    double m_H_n_RG = -1/m_RG;
+    double b_H_n_RG = y_H-m_H_n_RG*x_H;
+    pose_C.pose.position.x = (b_H_n_RG-b_G_n_vG)/(m_G_n_vG-m_H_n_RG);
+    pose_C.pose.position.y = (b_H_n_RG*m_G_n_vG-b_G_n_vG*m_H_n_RG)/(m_G_n_vG-m_H_n_RG);
     return true;
   }
 
@@ -2073,276 +1638,6 @@ namespace custom_planner
       // ROS_WARN("delta_angle: %f", delta_angle);
     }   
     return delta_angle;
-  }
-
-  // Hàm chia đoạn thẳng AB thành các đoạn có độ dài d
-  vector<Pose> CustomPlanner::divideSegment(Pose& A, Pose& B, double d) {
-      vector<Pose> Poses;
-      double xAB = B.getX() - A.getX();
-      double yAB = B.getY() - A.getY();
-      double length = sqrt(xAB*xAB + yAB*yAB);
-      if(length > d)
-      {
-        Poses.push_back(A); // Thêm điểm A vào vector trước khi chia
-        
-        int segments = length / d;
-
-        // Tính toán tọa độ của các điểm trên đoạn AB
-        double ratio = d / length;
-        for (int i = 1; i <= segments; ++i) {
-            Pose p;
-            double p_x = A.getX() + (B.getX() - A.getX()) * ratio * i;
-            double p_y = A.getY() + (B.getY() - A.getY()) * ratio * i;
-            p.setX(p_x);
-            p.setY(p_y);
-            Poses.push_back(p);
-        }
-        
-        if(!Poses.empty()&&(Poses.back().getX()!=B.getX() || Poses.back().getY()!=B.getY()))
-        {
-            Poses.push_back(B); // Thêm điểm B vào vector sau khi chia
-        }    
-
-        // Tính góc cho từng pose trên đoạn AB
-        if(computeDeltaAngleStartNode(A.getYaw(), Poses.front(), Poses[1]) <= 0.872664626 &&
-                computeDeltaAngleEndNode(B.getYaw(), Poses.back(), Poses[Poses.size()-2]) <= 0.872664626) // <= 50 degree
-        {
-          setYawAllPosesOnEdge(Poses, false);
-          Poses.front().setYaw(A.getYaw());
-          Poses.back().setYaw(B.getYaw());
-        }
-        else if(computeDeltaAngleStartNode(A.getYaw(), Poses.front(), Poses[1]) >= 2.2689280276 &&
-                computeDeltaAngleEndNode(B.getYaw(), Poses.back(), Poses[Poses.size()-2]) >= 2.2689280276) // >= 130 degree
-        {
-          setYawAllPosesOnEdge(Poses, true);
-          Poses.front().setYaw(A.getYaw());
-          Poses.back().setYaw(B.getYaw());
-        }
-      }
-      else
-      {
-        Poses.push_back(A);
-        Poses.push_back(B);
-      }
-      return Poses;
-  }
-
-  // Hàm chia đoạn thẳng AB thành các đoạn có độ dài d
-  vector<geometry_msgs::PoseStamped> CustomPlanner::divideSegment(geometry_msgs::PoseStamped& A, geometry_msgs::PoseStamped& B, double d) {
-      vector<geometry_msgs::PoseStamped> Poses;
-      double xAB = B.pose.position.x - A.pose.position.x;
-      double yAB = B.pose.position.y - A.pose.position.y;
-      double length = sqrt(xAB*xAB + yAB*yAB);
-      if(length > d)
-      {
-        Poses.push_back(A); // Thêm điểm A vào vector trước khi chia
-        
-        int segments = length / d;
-
-        // Tính toán tọa độ của các điểm trên đoạn AB
-        double ratio = d / length;
-        for (int i = 1; i <= segments; ++i) {
-            geometry_msgs::PoseStamped p;
-            double p_x = A.pose.position.x + (B.pose.position.x - A.pose.position.x) * ratio * i;
-            double p_y = A.pose.position.y + (B.pose.position.y - A.pose.position.y) * ratio * i;
-            p.pose.position.x = p_x;
-            p.pose.position.y = p_y;
-            Poses.push_back(p);
-        }
-        
-        if(!Poses.empty()&&(Poses.back().pose.position.x!=B.pose.position.x || Poses.back().pose.position.y!=B.pose.position.y))
-        {
-            Poses.push_back(B); // Thêm điểm B vào vector sau khi chia
-        }    
-
-        // Tính góc cho từng pose trên đoạn AB
-        if(computeDeltaAngleStartOfPlan(getYaw(A.pose.orientation.x, A.pose.orientation.y, A.pose.orientation.z, A.pose.orientation.w),
-          Poses.front().pose, Poses[1].pose) <= 0.872664626 &&  
-          computeDeltaAngleEndOfPlan(getYaw(B.pose.orientation.x, B.pose.orientation.y, B.pose.orientation.z, B.pose.orientation.w),
-          Poses.back().pose, Poses[Poses.size() - 2].pose) <= 0.872664626) // <= 50 degree
-        {
-          for(int i = 0; i<((int)Poses.size()-1); i++)
-          {
-              double theta = calculateAngle(Poses[i].pose.position.x, Poses[i].pose.position.y, 
-                                            Poses[i+1].pose.position.x, Poses[i+1].pose.position.y);
-              Poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);   
-          }
-          Poses.back().pose.orientation = B.pose.orientation;
-        }
-        else if(computeDeltaAngleStartOfPlan(getYaw(A.pose.orientation.x, A.pose.orientation.y, A.pose.orientation.z, A.pose.orientation.w),
-                Poses.front().pose, Poses[1].pose) >= 2.2689280276 &&
-                computeDeltaAngleEndOfPlan(getYaw(B.pose.orientation.x, B.pose.orientation.y, B.pose.orientation.z, B.pose.orientation.w),
-                Poses.back().pose, Poses[Poses.size() - 2].pose) >= 2.2689280276) // >= 130 degree
-        {
-          for(int i = (int)Poses.size() -1; i>0; i--)
-          {
-              double theta = calculateAngle(Poses[i].pose.position.x, Poses[i].pose.position.y, 
-                                            Poses[i-1].pose.position.x, Poses[i-1].pose.position.y);
-              Poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);   
-          }
-          Poses.front().pose.orientation = A.pose.orientation;
-        }
-      }
-      else
-      {
-        Poses.push_back(A);
-        Poses.push_back(B);
-      }
-      return Poses;
-  }
-
-  bool CustomPlanner::makeCurvePlan(Pose& pose_A, Pose& pose_B, std::vector<Pose>& result_plan)
-  {
-    bool result = false;
-    double xAB = pose_B.getX() - pose_A.getX();
-    double yAB = pose_B.getY() - pose_A.getY();
-    double d_AB = sqrt(xAB*xAB + yAB*yAB);
-    if(d_AB<=0.1)
-    {
-      ROS_WARN("Curve AB is too short, cannot compute plan");
-      return false;
-    }
-
-    // nếu hướng của vector AB và hướng của pose_B tạo với nhau một góc ~0 độ hoặc ~180 độ -> cung tròn AB sẽ gần như là một đọan thẳng
-    if((computeDeltaAngleEndNode(pose_B.getYaw(),
-        pose_B, pose_A) >= 3.13 && 
-        computeDeltaAngleEndNode(pose_B.getYaw(),
-        pose_B, pose_A) <= M_PI) ||
-       (computeDeltaAngleEndNode(pose_B.getYaw(),
-        pose_B, pose_A) <= 0.1745 && 
-        computeDeltaAngleEndNode(pose_B.getYaw(),
-        pose_B, pose_A) >= 0))
-    {
-      vector<Pose> planSegment_AB;
-      planSegment_AB = divideSegment(pose_A, pose_B, 0.008);
-      result_plan.assign(planSegment_AB.begin(), planSegment_AB.end());
-    }
-    // Tính quỹ đạo từ A->B có dạng một cung tròn
-    else
-    {
-      Pose pose_C;
-      if(findCenterOfCurve(pose_A, pose_B, pose_C))
-      {
-        double xCA = pose_A.getX() - pose_C.getX();
-        double yCA = pose_A.getY() - pose_C.getY();
-        double xCB = pose_B.getX() - pose_C.getX();
-        double yCB = pose_B.getY() - pose_C.getY();
-        double rCA = sqrt(xCA*xCA + yCA*yCA);
-        double rCB = sqrt(xCB*xCB + yCB*yCB);
-        if(abs(rCA-rCB)>0.008)
-        {
-          ROS_WARN("pose_C is not Center of Curve AB");
-          return false;
-        }            
-
-        double cos_ACB = (xCA*xCB + yCA*yCB)/(rCA*rCB);
-        double angleACB = acos(cos_ACB);
-        double angle_interval = 0.005;
-        // tính góc của vector CA:
-        double angleCA = atan2(yCA, xCA);
-
-        // check thử xem chiều góc quét từ A -> B thì angleCA + delta_angle hay angleCA - delta_angle
-        bool is_increase_angle = false;
-        double check_angle = angleCA + 50*angle_interval*angleACB;
-        double xA1 = pose_C.getX() + rCA*cos(check_angle);
-        double yA1 = pose_C.getY() + rCA*sin(check_angle);
-        double xCA1 = xA1 - pose_C.getX();
-        double yCA1 = yA1 - pose_C.getY();
-        double cos_A1CB = (xCA1*xCB + yCA1*yCB)/(rCA*rCB);
-        double angleA1CB = acos(cos_A1CB);
-        if(angleA1CB>angleACB)
-        {
-          is_increase_angle = false;
-        }
-        else if(angleA1CB<angleACB)
-        {
-          is_increase_angle = true;
-        }
-        else
-        {
-          ROS_WARN("Curve AB is too short, cannot compute plan");
-          return false;
-        }
-        if(is_increase_angle)
-        {
-          for(double i = 0; i<=1; i+= angle_interval)
-          {
-            double angle_tmp = angleCA + angleACB*i;
-            double xP = pose_C.getX() + rCA*cos(angle_tmp);
-            double yP = pose_C.getY() + rCA*sin(angle_tmp);
-            Pose p;
-            p.setX(xP);
-            p.setY(yP);
-            result_plan.push_back(p);
-          }
-        }
-        else
-        {
-          for(double i = 0; i<=1; i+= angle_interval)
-          {
-            double angle_tmp = angleCA - angleACB*i;
-            double xP = pose_C.getX() + rCA*cos(angle_tmp);
-            double yP = pose_C.getY() + rCA*sin(angle_tmp);
-            Pose p;
-            p.setX(xP);
-            p.setY(yP);
-            result_plan.push_back(p);
-          }
-        }
-        if(!result_plan.empty()&&result_plan.size()>2)
-        {
-          for(int i = 0 ; i < result_plan.size(); i++)
-          {
-            ROS_INFO("Pose %d in PlanRetry : %f, %f", i, result_plan[i].getX(), result_plan[i].getY());
-          }
-          if(computeDeltaAngleStartNode(pose_A.getYaw(), result_plan.front(), result_plan[1]) <= 0.872664626 &&  
-            computeDeltaAngleEndNode(pose_B.getYaw(), result_plan.back(), result_plan[result_plan.size() - 2]) <= 0.872664626) // <= 50 degree
-          {
-            for(int i = 0; i<((int)result_plan.size()-1); i++)
-            {
-                double theta = calculateAngle(result_plan[i].getX(), result_plan[i].getY(), 
-                                              result_plan[i+1].getX(), result_plan[i+1].getY());
-                result_plan[i].setYaw(theta);
-            }
-            result_plan.back().setYaw(pose_B.getYaw());
-          }
-          else if(computeDeltaAngleStartNode(pose_A.getYaw(), result_plan.front(), result_plan[1]) >= 2.2689280276 &&  
-            computeDeltaAngleEndNode(pose_A.getYaw(), result_plan.back(), result_plan[result_plan.size() - 2]) >= 2.2689280276) // >= 130 degree
-          {
-            for(int i = (int)result_plan.size() -1; i>0; i--)
-            {
-                double theta = calculateAngle(result_plan[i].getX(), result_plan[i].getY(), 
-                                              result_plan[i-1].getX(), result_plan[i-1].getY());
-                result_plan[i].setYaw(theta);   
-            }
-            result_plan.front().setYaw(result_plan[1].getYaw());
-          }
-          else
-          {
-            ROS_WARN("Pose_A yaw or Pose_B yaw is invalid value");
-            return false;
-          }
-        }
-        else
-        {
-          ROS_WARN("Curve AB is too short, cannot compute plan");
-          return false;
-        }
-      }
-    }
-    if(!result_plan.empty())
-    {
-      if(result_plan.front().getX()!=pose_A.getX() || result_plan.front().getY()!=pose_A.getY())
-      {
-        result_plan.insert(result_plan.begin(), pose_A);
-      }
-      if(result_plan.back().getX()!=pose_B.getX() || result_plan.back().getY()!=pose_B.getY())
-      {
-        result_plan.push_back(pose_B);
-      }
-      result = true;
-    }
-    return result;
   }
 
   void CustomPlanner::test_print_plan_result()
