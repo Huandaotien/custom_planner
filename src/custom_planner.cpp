@@ -2214,7 +2214,7 @@ namespace custom_planner
         pose_B, pose_A) >= 0))
     {
       vector<Pose> planSegment_AB;
-      planSegment_AB = divideSegment(pose_A, pose_B, 0.008);
+      planSegment_AB = divideSegment(pose_A, pose_B, 0.01);
       result_plan.assign(planSegment_AB.begin(), planSegment_AB.end());
     }
     // Tính quỹ đạo từ A->B có dạng một cung tròn
@@ -2237,7 +2237,7 @@ namespace custom_planner
 
         double cos_ACB = (xCA*xCB + yCA*yCB)/(rCA*rCB);
         double angleACB = acos(cos_ACB);
-        double angle_interval = 0.005;
+        double angle_interval = 0.01;
         // tính góc của vector CA:
         double angleCA = atan2(yCA, xCA);
 
