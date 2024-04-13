@@ -83,7 +83,8 @@ double Pathway::calculateAngle(Pose p1, Pose p2, Pose p3)
     // Tính góc giữa hai vector
     double dotProduct = vector1x * vector2x + vector1y * vector2y;
     double cosTheta = dotProduct / (lengthVector1 * lengthVector2);
-
+    if(cosTheta>1) cosTheta = 1;
+    else if(cosTheta<(-1)) cosTheta = -1;
     // Đổi radian sang độ
     double angle = acos(cosTheta) * 180.0 / M_PI;
 

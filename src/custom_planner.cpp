@@ -211,7 +211,7 @@ namespace custom_planner
       string pathway_fullfilename = userParams_->directory_to_save_paths + "/" + userParams_->pathway_filename;        
       if(loadPathwayData(pathway_fullfilename)) cout<< "Success in load pathway file: "<<pathway_fullfilename<<endl;
       else std::cout<<pathway_fullfilename<<" is not existed"<<std::endl;
-      order_msg_sub_ = private_nh.subscribe("/order",1000,&CustomPlanner::order_msg_handle,this);
+      // order_msg_sub_ = private_nh.subscribe("/order",1000,&CustomPlanner::order_msg_handle,this);
       service_servers_.push_back(p_nh.advertiseService("set_plan_with_order", &CustomPlanner::HandleSetPlanWithOrder, this));
 
       // vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>> control_point;
@@ -1257,7 +1257,7 @@ namespace custom_planner
             curve_point = CurveDesign->CalculateCurvePoint(input_spline_inf, u_test, true);
             if(!std::isnan(curve_point.x)&&!std::isnan(curve_point.y))
             posesOnEdge.push_back(Pose(curve_point.x, curve_point.y, 0));
-            ROS_INFO("curve_point: %f, %f   at u: %f",curve_point.x, curve_point.y, u_test);
+            // ROS_INFO("curve_point: %f, %f   at u: %f",curve_point.x, curve_point.y, u_test);
           }
           if(!isThetaValid(orderNodes[msg.edges[i].startNodeId].theta)&&!isThetaValid(orderNodes[msg.edges[i].endNodeId].theta))
           {
@@ -1638,6 +1638,8 @@ namespace custom_planner
       }            
 
       double cos_ACB = (xCA*xCB + yCA*yCB)/(rCA*rCB);
+      if(cos_ACB>1) cos_ACB = 1;
+      else if(cos_ACB<(-1)) cos_ACB = -1;
       double angleACB = acos(cos_ACB);
       double angle_interval = 0.005;
       // tính góc của vector CA:
@@ -1651,6 +1653,8 @@ namespace custom_planner
       double xCA1 = xA1 - pose_C.pose.position.x;
       double yCA1 = yA1 - pose_C.pose.position.y;
       double cos_A1CB = (xCA1*xCB + yCA1*yCB)/(rCA*rCB);
+      if(cos_A1CB>1) cos_A1CB = 1;
+      else if(cos_A1CB<(-1)) cos_A1CB = -1;
       double angleA1CB = acos(cos_A1CB);
       if(angleA1CB>angleACB)
       {
@@ -1879,6 +1883,8 @@ namespace custom_planner
       double yAC = yC-startPose.getY();
       double dAB = sqrt(xAB*xAB + yAB*yAB);
       double cos_a = (xAB*xAC + yAB*yAC)/(dAB*d);
+      if(cos_a>1) cos_a = 1;
+      else if(cos_a<(-1)) cos_a = -1;
       delta_angle = acos(cos_a);
       // delta_angle = delta_angle*180/M_PI;
       // ROS_WARN("xC: %f, yC: %f", xC, yC);
@@ -1902,6 +1908,8 @@ namespace custom_planner
       double yBC = yC-endPose.getY();
       double dAB = sqrt(xAB*xAB + yAB*yAB);
       double cos_a = (xAB*xBC + yAB*yBC)/(dAB*d);
+      if(cos_a>1) cos_a = 1;
+      else if(cos_a<(-1)) cos_a = -1;
       delta_angle = acos(cos_a);
       // delta_angle = delta_angle*180/M_PI;
       // ROS_WARN("xC: %f, yC: %f", xC, yC);
@@ -1925,6 +1933,8 @@ namespace custom_planner
       double yBC = yC-endPose.position.y;
       double dAB = sqrt(xAB*xAB + yAB*yAB);
       double cos_a = (xAB*xBC + yAB*yBC)/(dAB*d);
+      if(cos_a>1) cos_a = 1;
+      else if(cos_a<(-1)) cos_a = -1;
       delta_angle = acos(cos_a);
       // delta_angle = delta_angle*180/M_PI;
       // ROS_WARN("xC: %f, yC: %f", xC, yC);
@@ -1997,6 +2007,8 @@ namespace custom_planner
       double xAC = xC - xA;
       double yAC = yC - yA;
       double cos_a = (xAB*xAC + yAB*yAC)/(d*d);
+      if(cos_a>1) cos_a = 1;
+      else if(cos_a<(-1)) cos_a = -1;
       delta_angle = acos(cos_a);
       // delta_angle = delta_angle*180/M_PI;
       // ROS_WARN("delta_angle: %f", delta_angle);
@@ -2018,6 +2030,8 @@ namespace custom_planner
       double yAC = yC-startPose.position.y;
       double dAB = sqrt(xAB*xAB + yAB*yAB);
       double cos_a = (xAB*xAC + yAB*yAC)/(dAB*d);
+      if(cos_a>1) cos_a = 1;
+      else if(cos_a<(-1)) cos_a = -1;
       delta_angle = acos(cos_a);
       // delta_angle = delta_angle*180/M_PI;
       // ROS_WARN("xC: %f, yC: %f", xC, yC);
@@ -2044,6 +2058,8 @@ namespace custom_planner
       double xAC = xC - xA;
       double yAC = yC - yA;
       double cos_a = (xAB*xAC + yAB*yAC)/(d*d);
+      if(cos_a>1) cos_a = 1;
+      else if(cos_a<(-1)) cos_a = -1;
       delta_angle = acos(cos_a);
       // delta_angle = delta_angle*180/M_PI;
       // ROS_WARN("delta_angle: %f", delta_angle);
@@ -2068,6 +2084,8 @@ namespace custom_planner
       double xBC = xC - xB;
       double yBC = yC - yB;
       double cos_a = (xAB*xBC + yAB*yBC)/(d*d);
+      if(cos_a>1) cos_a = 1;
+      else if(cos_a<(-1)) cos_a = -1;
       delta_angle = acos(cos_a);
       // delta_angle = delta_angle*180/M_PI;
       // ROS_WARN("delta_angle: %f", delta_angle);
@@ -2236,6 +2254,8 @@ namespace custom_planner
         }            
 
         double cos_ACB = (xCA*xCB + yCA*yCB)/(rCA*rCB);
+        if(cos_ACB>1) cos_ACB = 1;
+        else if(cos_ACB<(-1)) cos_ACB = -1;
         double angleACB = acos(cos_ACB);
         double angle_interval = 0.01;
         // tính góc của vector CA:
@@ -2249,6 +2269,8 @@ namespace custom_planner
         double xCA1 = xA1 - pose_C.getX();
         double yCA1 = yA1 - pose_C.getY();
         double cos_A1CB = (xCA1*xCB + yCA1*yCB)/(rCA*rCB);
+        if(cos_A1CB>1) cos_A1CB = 1;
+        else if(cos_A1CB<(-1)) cos_A1CB = -1;
         double angleA1CB = acos(cos_A1CB);
         if(angleA1CB>angleACB)
         {
@@ -2293,7 +2315,7 @@ namespace custom_planner
         {
           for(int i = 0 ; i < result_plan.size(); i++)
           {
-            ROS_INFO("Pose %d in PlanRetry : %f, %f", i, result_plan[i].getX(), result_plan[i].getY());
+            // ROS_INFO("Pose %d in PlanRetry : %f, %f", i, result_plan[i].getX(), result_plan[i].getY());
           }
           if(computeDeltaAngleStartNode(pose_A.getYaw(), result_plan.front(), result_plan[1]) <= 0.872664626 &&  
             computeDeltaAngleEndNode(pose_B.getYaw(), result_plan.back(), result_plan[result_plan.size() - 2]) <= 0.872664626) // <= 50 degree

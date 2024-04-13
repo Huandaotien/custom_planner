@@ -55,6 +55,8 @@ double computeDeltaAngleStartOfPlan(double theta, geometry_msgs::Pose& startPose
       double yAC = yC-startPose.position.y;
       double dAB = sqrt(xAB*xAB + yAB*yAB);
       double cos_a = (xAB*xAC + yAB*yAC)/(dAB*d);
+      if(cos_a>1) cos_a = 1;
+      else if(cos_a<(-1)) cos_a = -1;
       delta_angle = acos(cos_a);
       // delta_angle = delta_angle*180/M_PI;
       // ROS_WARN("xC: %f, yC: %f", xC, yC);
@@ -78,6 +80,8 @@ double computeDeltaAngleEndOfPlan(double theta, geometry_msgs::Pose& endPose, ge
         double yBC = yC-endPose.position.y;
         double dAB = sqrt(xAB*xAB + yAB*yAB);
         double cos_a = (xAB*xBC + yAB*yBC)/(dAB*d);
+        if(cos_a>1) cos_a = 1;
+        else if(cos_a<(-1)) cos_a = -1;
         delta_angle = acos(cos_a);
         // delta_angle = delta_angle*180/M_PI;
         // ROS_WARN("xC: %f, yC: %f", xC, yC);
@@ -224,6 +228,8 @@ bool makePlanForRetry(std::vector<geometry_msgs::PoseStamped>& current_plan,
       }            
 
       double cos_ACB = (xCA*xCB + yCA*yCB)/(rCA*rCB);
+      if(cos_ACB>1) cos_ACB = 1;
+      else if(cos_ACB<(-1)) cos_ACB = -1;
       double angleACB = acos(cos_ACB);
       double angle_interval = 0.005;
       // tính góc của vector CA:
@@ -237,6 +243,8 @@ bool makePlanForRetry(std::vector<geometry_msgs::PoseStamped>& current_plan,
       double xCA1 = xA1 - pose_C.pose.position.x;
       double yCA1 = yA1 - pose_C.pose.position.y;
       double cos_A1CB = (xCA1*xCB + yCA1*yCB)/(rCA*rCB);
+      if(cos_A1CB>1) cos_A1CB = 1;
+      else if(cos_A1CB<(-1)) cos_A1CB = -1;
       double angleA1CB = acos(cos_A1CB);
       if(angleA1CB>angleACB)
       {
