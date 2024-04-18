@@ -294,10 +294,10 @@ bool makePlanForRetry(std::vector<geometry_msgs::PoseStamped>& current_plan,
           ROS_INFO("Pose %d in PlanRetry : %f, %f", i, PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y);
         }
         if(computeDeltaAngleStartOfPlan(getYaw(pose_A.pose.orientation.x, pose_A.pose.orientation.y, pose_A.pose.orientation.z, pose_A.pose.orientation.w),
-          PlanRetry_2.front().pose, PlanRetry_2[1].pose) <= 0.872664626 &&  
+          PlanRetry_2.front().pose, PlanRetry_2[1].pose) <= 1.3962634016 &&  
           computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-          PlanRetry_2.back().pose, PlanRetry_2[PlanRetry_2.size() - 2].pose) <= 0.872664626
-          ) // <= 50 degree
+          PlanRetry_2.back().pose, PlanRetry_2[PlanRetry_2.size() - 2].pose) <= 1.3962634016
+          ) // <= 80 degree
         {
           for(int i = 0; i<((int)PlanRetry_2.size()-1); i++)
           {
@@ -308,9 +308,9 @@ bool makePlanForRetry(std::vector<geometry_msgs::PoseStamped>& current_plan,
           PlanRetry_2.back().pose.orientation = pose_B.pose.orientation;
         }
         else if(computeDeltaAngleStartOfPlan(getYaw(pose_A.pose.orientation.x, pose_A.pose.orientation.y, pose_A.pose.orientation.z, pose_A.pose.orientation.w),
-          PlanRetry_2.front().pose, PlanRetry_2[1].pose) >= 2.2689280276 &&  
+          PlanRetry_2.front().pose, PlanRetry_2[1].pose) >= 1.745329252 &&  
           computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-          PlanRetry_2.back().pose, PlanRetry_2[PlanRetry_2.size() - 2].pose) >= 2.2689280276) // >= 130 degree
+          PlanRetry_2.back().pose, PlanRetry_2[PlanRetry_2.size() - 2].pose) >= 1.745329252) // >= 100 degree
         {
           for(int i = (int)PlanRetry_2.size() -1; i>0; i--)
           {

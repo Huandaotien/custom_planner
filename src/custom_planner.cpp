@@ -1130,6 +1130,7 @@ namespace custom_planner
   bool CustomPlanner::findNearestPoseOfPath(vector<Pose>& posesOnPathWay, Pose& PoseToCheck, Pose& PoseResult)
   {
     start_on_path_index = 0;
+    uint16_t start_on_path_index_tmp = 0;
     bool result = false;
     uint16_t it = 0;
     if(!posesOnPathWay.empty()){
@@ -1148,14 +1149,26 @@ namespace custom_planner
         }      
         it++;  
       }
+      start_on_path_index_tmp = start_on_path_index;
+      double SumDistanceCheck = 0;
       for(int i = start_on_path_index; i< (int)posesOnPathWay.size(); i++)
       {
-        double delta_angle = computeDeltaAngle(PoseToCheck, posesOnPathWay[i]);
-        if(delta_angle <= 0.5235987756||delta_angle >= 2.617993878) // <= 30 degree or >= 150 degree
+        double dx = posesOnPathWay[i+1].getX() - posesOnPathWay[i].getX();
+        double dy = posesOnPathWay[i+1].getY() - posesOnPathWay[i].getY();
+        SumDistanceCheck += sqrt(dx*dx + dy*dy);
+        if(SumDistanceCheck<1.7)
         {
-          start_on_path_index = i;
-          break;
+          double delta_angle = computeDeltaAngle(PoseToCheck, posesOnPathWay[i]);
+          if(delta_angle <= 1.3962634016||delta_angle >= 1.745329252) // <= 80 degree or >= 100 degree
+          {
+            start_on_path_index = i;
+            break;
+          }
         }
+      }
+      if(start_on_path_index==((int)posesOnPathWay.size()-1)||start_on_path_index==start_on_path_index_tmp) // find to last element or index is not change
+      {
+        start_on_path_index = start_on_path_index_tmp;
       }
       result = true;
     }
