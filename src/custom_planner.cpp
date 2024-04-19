@@ -1286,7 +1286,31 @@ namespace custom_planner
             {
               posesOnEdge.insert(posesOnEdge.end(), Pose(orderNodes[msg.edges[i].endNodeId].position_x, orderNodes[msg.edges[i].endNodeId].position_y, 0.0123443210));              
             }
-            setYawAllPosesOnEdge(posesOnEdge, false);
+            if(!posesOnPathWay.empty())
+            {
+              if(computeDeltaAngleStartNode(posesOnPathWay.back().getYaw(), posesOnEdge.front(), posesOnEdge[1]) <= 0.872664626)
+              {
+                setYawAllPosesOnEdge(posesOnEdge, false);
+              }
+              else if(computeDeltaAngleStartNode(posesOnPathWay.back().getYaw(), posesOnEdge.front(), posesOnEdge[1]) >= 2.2689280276)
+              {
+                setYawAllPosesOnEdge(posesOnEdge, true);
+              }
+              else
+              {
+                ROS_WARN("Trajectory of Edge: %s, startNode: %s, endNode: %s is not good", 
+                msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str(),  msg.edges[i].endNodeId.c_str());
+                status = 3;
+                message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
+                ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
+                return false;
+                break;
+              }
+            }
+            else
+            {
+              setYawAllPosesOnEdge(posesOnEdge, false);
+            }
             if(!posesOnPathWay.empty())  // posesOnPathWay has datas 
             {
               if(posesOnEdge.front().getX()==posesOnPathWay.back().getX()&&
