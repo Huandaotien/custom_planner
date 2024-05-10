@@ -146,7 +146,7 @@ private:
   void order_msg_handle(const vda5050_msgs::Order::ConstPtr& msg);
   bool HandleSetPlanWithOrder(custom_planner::PlanWithOrder::Request& request, custom_planner::PlanWithOrder::Response& response);
 
-  bool makePlanWithOrder(vda5050_msgs::Order msg, uint8_t& status, string& message);
+  bool makePlanWithOrder(vda5050_msgs::Order msg, uint8_t& status, string& message, bool is_move_backward);
 
   bool makePlanForRetry(std::vector<geometry_msgs::PoseStamped>& current_plan, 
     int indexOfPoseA, geometry_msgs::PoseStamped& pose_B, 

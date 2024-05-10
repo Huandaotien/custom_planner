@@ -412,8 +412,8 @@ namespace custom_planner
       start_pose.setYaw(getYaw(start.pose.orientation.x, start.pose.orientation.y, start.pose.orientation.z, start.pose.orientation.w));
       if(findNearestPoseOfPath(posesOnPathWay, start_pose, start_on_path))
       {
-        ROS_INFO("[custom_planner] getting start point (%g,%g) goal point (%g,%g)",
-              start_pose.getX(), start_pose.getY(), goal.pose.position.x, goal.pose.position.y);
+        ROS_INFO("[custom_planner] getting start point (%g,%g) goal point (%g,%g) start_pose_on_path (%g,%g)",
+              start_pose.getX(), start_pose.getY(), goal.pose.position.x, goal.pose.position.y, start_on_path.getX(), start_on_path.getY());
         pose_start_on_path.pose.position.x = start_on_path.getX();
         pose_start_on_path.pose.position.y = start_on_path.getY();
         pose_start_on_path.pose.position.z = 0;
@@ -843,6 +843,11 @@ namespace custom_planner
       gui_path.poses = plan;
       plan_pub_.publish(gui_path);
     }
+    else
+    {
+      ROS_ERROR("[custom_planner] posesOnPathWay is empty");
+      return false;
+    }
     // For deverlop (To do: improve make plan with sbpl lattice)
     /*
     else
@@ -1151,24 +1156,176 @@ namespace custom_planner
       }
       start_on_path_index_tmp = start_on_path_index;
       double SumDistanceCheck = 0;
-      for(int i = start_on_path_index; i< (int)posesOnPathWay.size(); i++)
+      if(start_on_path_index==0)
       {
-        double dx = posesOnPathWay[i+1].getX() - posesOnPathWay[i].getX();
-        double dy = posesOnPathWay[i+1].getY() - posesOnPathWay[i].getY();
-        SumDistanceCheck += sqrt(dx*dx + dy*dy);
-        if(SumDistanceCheck<1.7)
+        double SumDistanceCheck2 = 0;
+        bool computeSegment1Good = false;
+        bool computeSegment2Good = false;
+        uint16_t start_on_path_index_1 = start_on_path_index_tmp;
+        uint16_t start_on_path_index_2 = start_on_path_index_tmp;
+        double deltaAngleMinToRotate_1 = abs(PoseToCheck.getYaw()-posesOnPathWay[0].getYaw());
+        double deltaAngle_1 = computeDeltaAngle(PoseToCheck, posesOnPathWay[0]);
+        double deltaAngleMinToRotate_2 = 10;
+        if(deltaAngle_1 <= 0.872664626||deltaAngle_1 >= 2.2689280276) // <= 50 degree or >= 130 degree
         {
-          double delta_angle = computeDeltaAngle(PoseToCheck, posesOnPathWay[i]);
-          if(delta_angle <= 1.3962634016||delta_angle >= 1.745329252) // <= 80 degree or >= 100 degree
+          if(deltaAngleMinToRotate_1 <= 0.872664626) // <= 50 degree
           {
-            start_on_path_index = i;
-            break;
+            computeSegment1Good = true;
+            start_on_path_index_1 = 0;
           }
         }
+        for(int i = 0; i< (int)posesOnPathWay.size(); i++)
+        {
+          if(i!=0)
+          {
+            double dx = posesOnPathWay[i].getX() - posesOnPathWay[i-1].getX();
+            double dy = posesOnPathWay[i].getY() - posesOnPathWay[i-1].getY();
+            SumDistanceCheck2 += sqrt(dx*dx + dy*dy);
+          }
+          if(SumDistanceCheck2<2) //search distance < 1 m
+          {
+            double deltaAngle_2 = computeDeltaAngle(PoseToCheck, posesOnPathWay[i]);
+            if(deltaAngle_2 <= 0.872664626||deltaAngle_2 >= 2.2689280276) // <= 50 degree or >= 130 degree
+            {
+              double deltaAngleToRotate_2 = abs(PoseToCheck.getYaw()-posesOnPathWay[i].getYaw());
+              if(deltaAngleToRotate_2 <= 0.872664626) // <= 50 degree
+              {
+                if(deltaAngleToRotate_2<deltaAngleMinToRotate_2)
+                {                  
+                  deltaAngleMinToRotate_2 = deltaAngleToRotate_2;
+                  start_on_path_index_2 = i;
+                  computeSegment2Good = true;
+                }
+              }
+            }
+          }          
+        }
+        SumDistanceCheck2 = 0;
+        if(computeSegment1Good==true&&computeSegment2Good==true)
+        {
+          if(deltaAngleMinToRotate_2<deltaAngleMinToRotate_1)
+          {
+            start_on_path_index = start_on_path_index_2;
+          }
+          else if(deltaAngleMinToRotate_2==deltaAngleMinToRotate_1)
+          {
+            start_on_path_index = start_on_path_index_2;
+          }
+          else
+          {
+            start_on_path_index = deltaAngleMinToRotate_1;
+          }
+        }
+        else if(computeSegment1Good==true)
+        {
+          start_on_path_index = start_on_path_index_1;
+        }
+        else if(computeSegment2Good==true)
+        {
+          start_on_path_index = start_on_path_index_2;
+        }
+        else
+        {
+          start_on_path_index = start_on_path_index_tmp;
+        }
       }
+      else if(start_on_path_index!=((int)posesOnPathWay.size()-1))
+      {
+        double SumDistanceCheck1 = 0;
+        double SumDistanceCheck2 = 0;
+        bool computeSegment1Good = false;
+        bool computeSegment2Good = false;
+        uint16_t start_on_path_index_1 = start_on_path_index_tmp;
+        uint16_t start_on_path_index_2 = start_on_path_index_tmp;
+        double deltaAngleMinToRotate_1 = 10;
+        double deltaAngleMinToRotate_2 = 10;
+
+        for(int i = start_on_path_index; i >= 0; i--)
+        {
+          if(i!= start_on_path_index)
+          {
+            double dx = posesOnPathWay[i].getX() - posesOnPathWay[i+1].getX();
+            double dy = posesOnPathWay[i].getY() - posesOnPathWay[i+1].getY();
+            SumDistanceCheck1 += sqrt(dx*dx + dy*dy);
+          }          
+          if(SumDistanceCheck1<2) //search distance < 1 m
+          {
+            double deltaAngle_1 = computeDeltaAngle(PoseToCheck, posesOnPathWay[i]);
+            if(deltaAngle_1 <= 0.872664626||deltaAngle_1 >= 2.2689280276) // <= 50 degree or >= 130 degree
+            {
+              double deltaAngleToRotate_1 = abs(PoseToCheck.getYaw()-posesOnPathWay[i].getYaw());
+              if(deltaAngleToRotate_1 <= 0.872664626) // <= 50 degree
+              {
+                if(deltaAngleToRotate_1<deltaAngleMinToRotate_1)
+                {                  
+                  deltaAngleMinToRotate_1 = deltaAngleToRotate_1;
+                  start_on_path_index_1 = i;
+                  computeSegment1Good = true;
+                }
+              }
+            }
+          }          
+        }
+        SumDistanceCheck1 = 0;
+        for(int i = start_on_path_index; (int)posesOnPathWay.size(); i++)
+        {
+          if(i!=start_on_path_index)
+          {
+            double dx = posesOnPathWay[i].getX() - posesOnPathWay[i-1].getX();
+            double dy = posesOnPathWay[i].getY() - posesOnPathWay[i-1].getY();
+            SumDistanceCheck2 += sqrt(dx*dx + dy*dy);
+          }
+          if(SumDistanceCheck2<2) //search distance < 1 m
+          {
+            double deltaAngle_2 = computeDeltaAngle(PoseToCheck, posesOnPathWay[i]);
+            if(deltaAngle_2 <= 0.872664626||deltaAngle_2 >= 2.2689280276) // <= 50 degree or >= 130 degree
+            {
+              double deltaAngleToRotate_2 = abs(PoseToCheck.getYaw()-posesOnPathWay[i].getYaw());
+              if(deltaAngleToRotate_2 <= 0.872664626) // <= 50 degree
+              {
+                if(deltaAngleToRotate_2<deltaAngleMinToRotate_2)
+                {                  
+                  deltaAngleMinToRotate_2 = deltaAngleToRotate_2;
+                  start_on_path_index_2 = i;
+                  computeSegment2Good = true;
+                }
+              }
+            }
+          }
+        }
+        SumDistanceCheck2 = 0;
+        if(computeSegment1Good==true&&computeSegment2Good==true)
+        {
+          if(deltaAngleMinToRotate_2<deltaAngleMinToRotate_1)
+          {
+            start_on_path_index = start_on_path_index_2;
+          }
+          else if(deltaAngleMinToRotate_2==deltaAngleMinToRotate_1)
+          {
+            start_on_path_index = start_on_path_index_2;
+          }
+          else
+          {
+            start_on_path_index = deltaAngleMinToRotate_1;
+          }
+        }
+        else if(computeSegment1Good==true)
+        {
+          start_on_path_index = start_on_path_index_1;
+        }
+        else if(computeSegment2Good==true)
+        {
+          start_on_path_index = start_on_path_index_2;
+        }
+        else
+        {
+          start_on_path_index = start_on_path_index_tmp;
+        }
+
+      }      
       if(start_on_path_index==((int)posesOnPathWay.size()-1)||start_on_path_index==start_on_path_index_tmp) // find to last element or index is not change
       {
-        start_on_path_index = start_on_path_index_tmp;
+        start_on_path_index = start_on_path_index_tmp; // set to closet pose
       }
       result = true;
     }
@@ -1183,7 +1340,12 @@ namespace custom_planner
   {
     uint8_t status;
     string message;
-    if(makePlanWithOrder(*msg, status, message))
+    if(makePlanWithOrder(*msg, status, message, false))
+    {
+      ROS_INFO("Success to make plan with order");
+      test_print_plan_result();
+    }
+    else if(makePlanWithOrder(*msg, status, message, true))
     {
       ROS_INFO("Success to make plan with order");
       test_print_plan_result();
@@ -1200,7 +1362,13 @@ namespace custom_planner
   {
     uint8_t status;
     string message;
-    if(makePlanWithOrder(request.order, status, message))
+    if(makePlanWithOrder(request.order, status, message, false))
+    {
+      response.status = status;
+      response.message = message;
+      response.success = true;
+    }
+    else if(makePlanWithOrder(request.order, status, message, true))
     {
       response.status = status;
       response.message = message;
@@ -1215,7 +1383,7 @@ namespace custom_planner
     return true;
   }
 
-  bool CustomPlanner::makePlanWithOrder(vda5050_msgs::Order msg, uint8_t& status, string& message)
+  bool CustomPlanner::makePlanWithOrder(vda5050_msgs::Order msg, uint8_t& status, string& message, bool is_move_backward)
   {
     orderNodes.clear();
     posesOnPathWay.clear();
@@ -1309,7 +1477,13 @@ namespace custom_planner
             }
             else
             {
-              setYawAllPosesOnEdge(posesOnEdge, false);
+              if(is_move_backward==false)
+              {
+                setYawAllPosesOnEdge(posesOnEdge, false);
+              }
+              else{
+                setYawAllPosesOnEdge(posesOnEdge, true);
+              }
             }
             if(!posesOnPathWay.empty())  // posesOnPathWay has datas 
             {
@@ -2254,7 +2428,7 @@ namespace custom_planner
     double d_AB = sqrt(xAB*xAB + yAB*yAB);
     if(d_AB<=0.1)
     {
-      ROS_WARN("Curve AB is too short, cannot compute plan");
+      ROS_WARN("[custom_planner][makeCurvePlan] Curve AB is too short, it is almost a straight line");
       return false;
     }
 
@@ -2271,6 +2445,7 @@ namespace custom_planner
       vector<Pose> planSegment_AB;
       planSegment_AB = divideSegment(pose_A, pose_B, 0.01);
       result_plan.assign(planSegment_AB.begin(), planSegment_AB.end());
+      ROS_WARN("[custom_planner][makeCurvePlan] Curve AB is almost a straight line");
     }
     // Tính quỹ đạo từ A->B có dạng một cung tròn
     else
@@ -2286,7 +2461,7 @@ namespace custom_planner
         double rCB = sqrt(xCB*xCB + yCB*yCB);
         if(abs(rCA-rCB)>0.008)
         {
-          ROS_WARN("pose_C is not Center of Curve AB");
+          ROS_WARN("[custom_planner][makeCurvePlan] pose_C is not Center of Curve AB");
           return false;
         }            
 
@@ -2319,7 +2494,7 @@ namespace custom_planner
         }
         else
         {
-          ROS_WARN("Curve AB is too short, cannot compute plan");
+          ROS_WARN("[custom_planner][makeCurvePlan] Curve AB is almost a straight line");
           return false;
         }
         if(is_increase_angle)
@@ -2366,7 +2541,7 @@ namespace custom_planner
             result_plan.back().setYaw(pose_B.getYaw());
           }
           else if(computeDeltaAngleStartNode(pose_A.getYaw(), result_plan.front(), result_plan[1]) >= 2.2689280276 &&  
-            computeDeltaAngleEndNode(pose_A.getYaw(), result_plan.back(), result_plan[result_plan.size() - 2]) >= 2.2689280276) // >= 130 degree
+            computeDeltaAngleEndNode(pose_B.getYaw(), result_plan.back(), result_plan[result_plan.size() - 2]) >= 2.2689280276) // >= 130 degree
           {
             for(int i = (int)result_plan.size() -1; i>0; i--)
             {
@@ -2378,13 +2553,13 @@ namespace custom_planner
           }
           else
           {
-            ROS_WARN("Pose_A yaw or Pose_B yaw is invalid value");
+            ROS_WARN("[custom_planner][makeCurvePlan] Pose_A yaw or Pose_B yaw is invalid value");
             return false;
           }
         }
         else
         {
-          ROS_WARN("Curve AB is too short, cannot compute plan");
+          ROS_WARN("[custom_planner][makeCurvePlan] Curve AB is almost a straight line");
           return false;
         }
       }
