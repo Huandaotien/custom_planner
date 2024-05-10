@@ -164,192 +164,216 @@ vector<geometry_msgs::PoseStamped> divideSegment(geometry_msgs::PoseStamped& A, 
     // result_plan: vector chứa plan kết quả
 
 bool makePlanForRetry(std::vector<geometry_msgs::PoseStamped>& current_plan, 
-    int indexOfPoseA, geometry_msgs::PoseStamped& pose_B, 
+    int indexOfPoseA, geometry_msgs::PoseStamped& pose_B, geometry_msgs::PoseStamped& pose_B_behind,
     geometry_msgs::PoseStamped& pose_C, std::vector<geometry_msgs::PoseStamped>& result_plan)
   {    
     bool result = false;
-    vector<geometry_msgs::PoseStamped> PlanRetry_1;
-    vector<geometry_msgs::PoseStamped> PlanRetry_2;
+  std::vector<geometry_msgs::PoseStamped> PlanRetry_1;
+  std::vector<geometry_msgs::PoseStamped> PlanRetry_2;
+  std::vector<geometry_msgs::PoseStamped> PlanRetry_3;
 
-    if(current_plan.empty()||current_plan.size()<2)
+  if(current_plan.empty()||current_plan.size()<2)
+  {
+    ROS_WARN("current_plan is empty");
+    return false;
+  }
+
+  geometry_msgs::PoseStamped pose_A;
+  pose_A = current_plan[indexOfPoseA];
+
+  // Tính ra PlanRetry_1 điểm retry tại Pose_A
+
+  PlanRetry_1.assign(current_plan.begin()+indexOfPoseA, current_plan.end());
+
+  if(!PlanRetry_1.empty()){
+    std::reverse(PlanRetry_1.begin(), PlanRetry_1.end());
+  }
+
+  // Tính ra PlanRetry_2 với biên dạng cung tròn đi qua pose_A và pose_B, có tâm tại pose_C
+
+  double xAB = pose_B.pose.position.x - pose_A.pose.position.x;
+  double yAB = pose_B.pose.position.y - pose_A.pose.position.y;
+  double d_AB = sqrt(xAB*xAB + yAB*yAB);
+  if(d_AB<=0.1)
+  {
+    ROS_WARN("Curve AB is too short, cannot compute plan");
+    return false;
+  }
+  
+  // nếu hướng của vector AB và hướng của pose_B tạo với nhau một góc ~0 độ hoặc ~180 độ -> cung tròn AB sẽ gần như là một đọan thẳng
+  if((computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
+      pose_B.pose, pose_A.pose) >= 3.13 && 
+      computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
+      pose_B.pose, pose_A.pose) <= M_PI) ||
+      (computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
+      pose_B.pose, pose_A.pose) <= 0.1745 && 
+      computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
+      pose_B.pose, pose_A.pose) >= 0))
+  {
+    std::vector<geometry_msgs::PoseStamped> planSegment_AB;
+    planSegment_AB = divideSegment(pose_A, pose_B, 0.008);
+    PlanRetry_2.assign(planSegment_AB.begin(), planSegment_AB.end());
+  }
+  else
+  {
+    double xCA = pose_A.pose.position.x - pose_C.pose.position.x;
+    double yCA = pose_A.pose.position.y - pose_C.pose.position.y;
+    double xCB = pose_B.pose.position.x - pose_C.pose.position.x;
+    double yCB = pose_B.pose.position.y - pose_C.pose.position.y;
+    double rCA = sqrt(xCA*xCA + yCA*yCA);
+    double rCB = sqrt(xCB*xCB + yCB*yCB);
+    if(abs(rCA-rCB)>0.008)
     {
-      ROS_WARN("current_plan is empty");
+      ROS_WARN("pose_C is not Center of Curve AB");
       return false;
+    }            
+
+    double cos_ACB = (xCA*xCB + yCA*yCB)/(rCA*rCB);
+    if(cos_ACB>1) cos_ACB = 1;
+    else if(cos_ACB<(-1)) cos_ACB = -1;
+    double angleACB = acos(cos_ACB);
+    double angle_interval = 0.005;
+    // tính góc của vector CA:
+    double angleCA = atan2(yCA, xCA);
+
+    // check thử xem chiều góc quét từ A -> B thì angleCA + delta_angle hay angleCA - delta_angle
+    bool is_increase_angle = false;
+    double check_angle = angleCA + 50*angle_interval*angleACB;
+    double xA1 = pose_C.pose.position.x + rCA*cos(check_angle);
+    double yA1 = pose_C.pose.position.y + rCA*sin(check_angle);
+    double xCA1 = xA1 - pose_C.pose.position.x;
+    double yCA1 = yA1 - pose_C.pose.position.y;
+    double cos_A1CB = (xCA1*xCB + yCA1*yCB)/(rCA*rCB);
+    if(cos_A1CB>1) cos_A1CB = 1;
+    else if(cos_A1CB<(-1)) cos_A1CB = -1;
+    double angleA1CB = acos(cos_A1CB);
+    if(angleA1CB>angleACB)
+    {
+      is_increase_angle = false;
     }
-
-    geometry_msgs::PoseStamped pose_A;
-    pose_A = current_plan[indexOfPoseA];
-
-    // Tính ra PlanRetry_1 điểm retry tại Pose_A
- 
-    PlanRetry_1.assign(current_plan.begin()+indexOfPoseA, current_plan.end());
-
-    if(!PlanRetry_1.empty()){
-      std::reverse(PlanRetry_1.begin(), PlanRetry_1.end());
+    else if(angleA1CB<angleACB)
+    {
+      is_increase_angle = true;
     }
-
-    // Tính ra PlanRetry_2 với biên dạng cung tròn đi qua pose_A và pose_B, có tâm tại pose_C
-
-    double xAB = pose_B.pose.position.x - pose_A.pose.position.x;
-    double yAB = pose_B.pose.position.y - pose_A.pose.position.y;
-    double d_AB = sqrt(xAB*xAB + yAB*yAB);
-    if(d_AB<=0.1)
+    else
     {
       ROS_WARN("Curve AB is too short, cannot compute plan");
       return false;
     }
-    
-    // nếu hướng của vector AB và hướng của pose_B tạo với nhau một góc ~0 độ hoặc ~180 độ -> cung tròn AB sẽ gần như là một đọan thẳng
-    if((computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-        pose_B.pose, pose_A.pose) >= 3.13 && 
-        computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-        pose_B.pose, pose_A.pose) <= M_PI) ||
-       (computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-        pose_B.pose, pose_A.pose) <= 0.1745 && 
-        computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-        pose_B.pose, pose_A.pose) >= 0))
+    if(is_increase_angle)
     {
-      vector<geometry_msgs::PoseStamped> planSegment_AB;
-      planSegment_AB = divideSegment(pose_A, pose_B, 0.008);
-      PlanRetry_2.assign(planSegment_AB.begin(), planSegment_AB.end());
+      for(double i = 0; i<=1; i+= angle_interval)
+      {
+        double angle_tmp = angleCA + angleACB*i;
+        double xP = pose_C.pose.position.x + rCA*cos(angle_tmp);
+        double yP = pose_C.pose.position.y + rCA*sin(angle_tmp);
+        geometry_msgs::PoseStamped p;
+        p.pose.position.x = xP;
+        p.pose.position.y = yP;
+        p.pose.position.z = 0;
+        PlanRetry_2.push_back(p);
+      }
     }
     else
     {
-      double xCA = pose_A.pose.position.x - pose_C.pose.position.x;
-      double yCA = pose_A.pose.position.y - pose_C.pose.position.y;
-      double xCB = pose_B.pose.position.x - pose_C.pose.position.x;
-      double yCB = pose_B.pose.position.y - pose_C.pose.position.y;
-      double rCA = sqrt(xCA*xCA + yCA*yCA);
-      double rCB = sqrt(xCB*xCB + yCB*yCB);
-      if(abs(rCA-rCB)>0.008)
+      for(double i = 0; i<=1; i+= angle_interval)
       {
-        ROS_WARN("pose_C is not Center of Curve AB");
-        return false;
-      }            
-
-      double cos_ACB = (xCA*xCB + yCA*yCB)/(rCA*rCB);
-      if(cos_ACB>1) cos_ACB = 1;
-      else if(cos_ACB<(-1)) cos_ACB = -1;
-      double angleACB = acos(cos_ACB);
-      double angle_interval = 0.005;
-      // tính góc của vector CA:
-      double angleCA = atan2(yCA, xCA);
-
-      // check thử xem chiều góc quét từ A -> B thì angleCA + delta_angle hay angleCA - delta_angle
-      bool is_increase_angle = false;
-      double check_angle = angleCA + 50*angle_interval*angleACB;
-      double xA1 = pose_C.pose.position.x + rCA*cos(check_angle);
-      double yA1 = pose_C.pose.position.y + rCA*sin(check_angle);
-      double xCA1 = xA1 - pose_C.pose.position.x;
-      double yCA1 = yA1 - pose_C.pose.position.y;
-      double cos_A1CB = (xCA1*xCB + yCA1*yCB)/(rCA*rCB);
-      if(cos_A1CB>1) cos_A1CB = 1;
-      else if(cos_A1CB<(-1)) cos_A1CB = -1;
-      double angleA1CB = acos(cos_A1CB);
-      if(angleA1CB>angleACB)
-      {
-        is_increase_angle = false;
-      }
-      else if(angleA1CB<angleACB)
-      {
-        is_increase_angle = true;
-      }
-      else
-      {
-        ROS_WARN("Curve AB is too short, cannot compute plan");
-        return false;
-      }
-      if(is_increase_angle)
-      {
-        for(double i = 0; i<=1; i+= angle_interval)
-        {
-          double angle_tmp = angleCA + angleACB*i;
-          double xP = pose_C.pose.position.x + rCA*cos(angle_tmp);
-          double yP = pose_C.pose.position.y + rCA*sin(angle_tmp);
-          geometry_msgs::PoseStamped p;
-          p.pose.position.x = xP;
-          p.pose.position.y = yP;
-          p.pose.position.z = 0;
-          PlanRetry_2.push_back(p);
-        }
-      }
-      else
-      {
-        for(double i = 0; i<=1; i+= angle_interval)
-        {
-          double angle_tmp = angleCA - angleACB*i;
-          double xP = pose_C.pose.position.x + rCA*cos(angle_tmp);
-          double yP = pose_C.pose.position.y + rCA*sin(angle_tmp);
-          geometry_msgs::PoseStamped p;
-          p.pose.position.x = xP;
-          p.pose.position.y = yP;
-          p.pose.position.z = 0;
-          PlanRetry_2.push_back(p);
-        }
-      }
-      if(!PlanRetry_2.empty()&&PlanRetry_2.size()>2)
-      {
-        for(int i = 0 ; i < PlanRetry_2.size(); i++)
-        {
-          ROS_INFO("Pose %d in PlanRetry : %f, %f", i, PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y);
-        }
-        if(computeDeltaAngleStartOfPlan(getYaw(pose_A.pose.orientation.x, pose_A.pose.orientation.y, pose_A.pose.orientation.z, pose_A.pose.orientation.w),
-          PlanRetry_2.front().pose, PlanRetry_2[1].pose) <= 1.3962634016 &&  
-          computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-          PlanRetry_2.back().pose, PlanRetry_2[PlanRetry_2.size() - 2].pose) <= 1.3962634016
-          ) // <= 80 degree
-        {
-          for(int i = 0; i<((int)PlanRetry_2.size()-1); i++)
-          {
-              double theta = calculateAngle(PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y, 
-                                            PlanRetry_2[i+1].pose.position.x, PlanRetry_2[i+1].pose.position.y);
-              PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);   
-          }
-          PlanRetry_2.back().pose.orientation = pose_B.pose.orientation;
-        }
-        else if(computeDeltaAngleStartOfPlan(getYaw(pose_A.pose.orientation.x, pose_A.pose.orientation.y, pose_A.pose.orientation.z, pose_A.pose.orientation.w),
-          PlanRetry_2.front().pose, PlanRetry_2[1].pose) >= 1.745329252 &&  
-          computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-          PlanRetry_2.back().pose, PlanRetry_2[PlanRetry_2.size() - 2].pose) >= 1.745329252) // >= 100 degree
-        {
-          for(int i = (int)PlanRetry_2.size() -1; i>0; i--)
-          {
-              double theta = calculateAngle(PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y, 
-                                            PlanRetry_2[i-1].pose.position.x, PlanRetry_2[i-1].pose.position.y);
-              PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);   
-          }
-          PlanRetry_2.front().pose.orientation = PlanRetry_2[1].pose.orientation;
-        }
-        else
-        {
-          ROS_WARN("Pose_A yaw or Pose_B yaw is invalid value");
-          return false;
-        }
-      }
-      else
-      {
-        ROS_WARN("Curve AB is too short, cannot compute plan");
-        return false;
+        double angle_tmp = angleCA - angleACB*i;
+        double xP = pose_C.pose.position.x + rCA*cos(angle_tmp);
+        double yP = pose_C.pose.position.y + rCA*sin(angle_tmp);
+        geometry_msgs::PoseStamped p;
+        p.pose.position.x = xP;
+        p.pose.position.y = yP;
+        p.pose.position.z = 0;
+        PlanRetry_2.push_back(p);
       }
     }
-    
-    ros::Time plan_time = ros::Time::now();
-    if(!PlanRetry_1.empty()&&!PlanRetry_2.empty())
+    if(!PlanRetry_2.empty()&&PlanRetry_2.size()>2)
     {
-      for(int i = 0; i < (int)PlanRetry_1.size(); i++)
+      for(int i = 0 ; i < PlanRetry_2.size(); i++)
       {
-        PlanRetry_1[i].header.stamp = plan_time;
-        result_plan.push_back(PlanRetry_1[i]);
+        ROS_INFO("Pose %d in PlanRetry : %f, %f", i, PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y);
       }
-      for(int i = 0; i < (int)PlanRetry_2.size(); i++)
+      if(computeDeltaAngleStartOfPlan(getYaw(pose_A.pose.orientation.x, pose_A.pose.orientation.y, pose_A.pose.orientation.z, pose_A.pose.orientation.w),
+        PlanRetry_2.front().pose, PlanRetry_2[1].pose) <= 1.3962634016 &&  
+        computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
+        PlanRetry_2.back().pose, PlanRetry_2[PlanRetry_2.size() - 2].pose) <= 1.3962634016
+        ) // <= 80 degree
       {
-        PlanRetry_2[i].header.stamp = plan_time;
-        PlanRetry_2[i].header.frame_id = PlanRetry_1.front().header.frame_id;
-        result_plan.push_back(PlanRetry_2[i]);
+        for(int i = 0; i<((int)PlanRetry_2.size()-1); i++)
+        {
+            double theta = calculateAngle(PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y, 
+                                          PlanRetry_2[i+1].pose.position.x, PlanRetry_2[i+1].pose.position.y);
+            PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);   
+        }
+        PlanRetry_2.back().pose.orientation = pose_B.pose.orientation;
       }
-      result = true;
+      else if(computeDeltaAngleStartOfPlan(getYaw(pose_A.pose.orientation.x, pose_A.pose.orientation.y, pose_A.pose.orientation.z, pose_A.pose.orientation.w),
+        PlanRetry_2.front().pose, PlanRetry_2[1].pose) >= 1.745329252 &&  
+        computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
+        PlanRetry_2.back().pose, PlanRetry_2[PlanRetry_2.size() - 2].pose) >= 1.745329252) // >= 100 degree
+      {
+        for(int i = (int)PlanRetry_2.size() -1; i>0; i--)
+        {
+            double theta = calculateAngle(PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y, 
+                                          PlanRetry_2[i-1].pose.position.x, PlanRetry_2[i-1].pose.position.y);
+            PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);   
+        }
+        PlanRetry_2.front().pose.orientation = PlanRetry_2[1].pose.orientation;
+      }
+      else
+      {
+        ROS_WARN("Pose_A yaw or Pose_B yaw is invalid value");
+        return false;
+      }
     }
-    return result;
+    else
+    {
+      ROS_WARN("Curve AB is too short, cannot compute plan");
+      return false;
+    }
+  }
+
+  // Tạo đoạn đường từ poseB -> poseB_behind
+  PlanRetry_3 = divideSegment(pose_B, pose_B_behind, 0.008);
+  
+  ros::Time plan_time = ros::Time::now();
+  if(!PlanRetry_1.empty()&&!PlanRetry_2.empty()&&!PlanRetry_3.empty())
+  {
+    for(int i = 0; i < (int)PlanRetry_1.size(); i++)
+    {
+      PlanRetry_1[i].header.stamp = plan_time;
+      result_plan.push_back(PlanRetry_1[i]);
+    }
+    for(int i = 0; i < (int)PlanRetry_2.size(); i++)
+    {
+      PlanRetry_2[i].header.stamp = plan_time;
+      PlanRetry_2[i].header.frame_id = PlanRetry_1.front().header.frame_id;
+      result_plan.push_back(PlanRetry_2[i]);
+    }
+    for(int i = 0; i < (int)PlanRetry_3.size(); i++)
+    {
+      PlanRetry_3[i].header.stamp = plan_time;
+      PlanRetry_3[i].header.frame_id = PlanRetry_1.front().header.frame_id;
+      result_plan.push_back(PlanRetry_3[i]);
+    }
+    result = true;
+  }
+  else{
+    if(PlanRetry_3.empty())
+    {
+      ROS_WARN("PlanRetry_3 is empty");
+    }
+    if(PlanRetry_2.empty())
+    {
+      ROS_WARN("PlanRetry_2 is empty");
+    }
+    if(PlanRetry_1.empty())
+    {
+      ROS_WARN("PlanRetry_1 is empty");
+    }
+  }
+  return result;
 }
 
 // Hàm Tìm tâm C của cung tròn AB khi biết Pose tại điểm B: khi tìm thành công điểm C thì hàm trả về True
