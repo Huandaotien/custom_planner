@@ -134,8 +134,14 @@ private:
 
   inline double getYaw(double x, double y, double z, double w);
   inline double calculateAngle(double xA, double yA, double xB, double yB) {
-    double angleRad = atan2(yB - yA, xB - xA);
-    // double angleDeg = angleRad * 180.0 / M_PI;
+    double deltaX = xB - xA;
+    double deltaY = yB - yA;
+    double angleRad = 0;
+    if(deltaX!=0)
+    {
+      angleRad = atan2(deltaY, deltaX);
+      // double angleDeg = angleRad * 180.0 / M_PI;
+    }
     return angleRad;
   }
 

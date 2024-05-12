@@ -14,9 +14,15 @@
 using namespace std;
 
 inline double calculateAngle(double xA, double yA, double xB, double yB) {
-    double angleRad = atan2(yB - yA, xB - xA);
-    // double angleDeg = angleRad * 180.0 / M_PI;
-    return angleRad;
+  double deltaX = xB - xA;
+  double deltaY = yB - yA;
+  double angleRad = 0;
+  if(deltaX!=0)
+  {
+    angleRad = atan2(deltaY, deltaX);
+    // double angleDeg = angleRad * 180.0 / M_PI;    
+  }
+  return angleRad;
 }
 
 inline double getYaw(double x, double y, double z, double w){
@@ -25,12 +31,6 @@ inline double getYaw(double x, double y, double z, double w){
     double cosy_cosp = 1 - 2 * (y * y + z * z);
     double yaw = std::atan2(siny_cosp, cosy_cosp);
     return yaw;
-}
-
-inline double calculateAngle(double xA, double yA, double xB, double yB) {
-    double angleRad = atan2(yB - yA, xB - xA);
-    // double angleDeg = angleRad * 180.0 / M_PI;
-    return angleRad;
 }
 
 bool isThetaValid(double theta)
@@ -120,29 +120,47 @@ std::vector<geometry_msgs::PoseStamped> divideSegment(geometry_msgs::PoseStamped
       }    
 
       // Tính góc cho từng pose trên đoạn AB
-      if(computeDeltaAngleStartOfPlan(getYaw(A.pose.orientation.x, A.pose.orientation.y, A.pose.orientation.z, A.pose.orientation.w),
-        Poses.front().pose, Poses[1].pose) <= 0.872664626 &&  
+      if(//computeDeltaAngleStartOfPlan(getYaw(A.pose.orientation.x, A.pose.orientation.y, A.pose.orientation.z, A.pose.orientation.w),
+        //Poses.front().pose, Poses[1].pose) <= 0.872664626 &&  
         computeDeltaAngleEndOfPlan(getYaw(B.pose.orientation.x, B.pose.orientation.y, B.pose.orientation.z, B.pose.orientation.w),
-        Poses.back().pose, Poses[Poses.size() - 2].pose) <= 0.872664626) // <= 50 degree
+        Poses.back().pose, Poses[Poses.size() - 2].pose) <= 1.3962634016) // <= 80 degree
       {
+        double theta_tmp = 0;
         for(int i = 0; i<((int)Poses.size()-1); i++)
         {
+          if(Poses[i].pose.position.x!=Poses[i+1].pose.position.x)
+          {
             double theta = calculateAngle(Poses[i].pose.position.x, Poses[i].pose.position.y, 
                                           Poses[i+1].pose.position.x, Poses[i+1].pose.position.y);
-            Poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);   
+            Poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);
+            theta_tmp = theta;
+          }
+          else
+          {
+            Poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta_tmp);
+          } 
         }
         Poses.back().pose.orientation = B.pose.orientation;
       }
-      else if(computeDeltaAngleStartOfPlan(getYaw(A.pose.orientation.x, A.pose.orientation.y, A.pose.orientation.z, A.pose.orientation.w),
-              Poses.front().pose, Poses[1].pose) >= 2.2689280276 &&
+      else if(//computeDeltaAngleStartOfPlan(getYaw(A.pose.orientation.x, A.pose.orientation.y, A.pose.orientation.z, A.pose.orientation.w),
+              //Poses.front().pose, Poses[1].pose) >= 2.2689280276 &&
               computeDeltaAngleEndOfPlan(getYaw(B.pose.orientation.x, B.pose.orientation.y, B.pose.orientation.z, B.pose.orientation.w),
-              Poses.back().pose, Poses[Poses.size() - 2].pose) >= 2.2689280276) // >= 130 degree
+              Poses.back().pose, Poses[Poses.size() - 2].pose) >= 1.7453292526) // >= 100 degree
       {
+        double theta_tmp = 0;        
         for(int i = (int)Poses.size() -1; i>0; i--)
         {
+          if(Poses[i].pose.position.x!=Poses[i-1].pose.position.x)
+          {
             double theta = calculateAngle(Poses[i].pose.position.x, Poses[i].pose.position.y, 
                                           Poses[i-1].pose.position.x, Poses[i-1].pose.position.y);
-            Poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);   
+            Poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);  
+            theta_tmp = theta; 
+          }
+          else
+          {
+            Poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta_tmp);
+          }
         }
         Poses.front().pose.orientation = A.pose.orientation;
       }
@@ -294,30 +312,48 @@ bool makePlanForRetry(std::vector<geometry_msgs::PoseStamped>& current_plan,
       {
         ROS_INFO("Pose %d in PlanRetry : %f, %f", i, PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y);
       }
-      if(computeDeltaAngleStartOfPlan(getYaw(pose_A.pose.orientation.x, pose_A.pose.orientation.y, pose_A.pose.orientation.z, pose_A.pose.orientation.w),
-        PlanRetry_2.front().pose, PlanRetry_2[1].pose) <= 1.3962634016 &&  
+      if(/*computeDeltaAngleStartOfPlan(getYaw(pose_A.pose.orientation.x, pose_A.pose.orientation.y, pose_A.pose.orientation.z, pose_A.pose.orientation.w),
+        PlanRetry_2.front().pose, PlanRetry_2[1].pose) <= 1.3962634016 &&*/
         computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
         PlanRetry_2.back().pose, PlanRetry_2[PlanRetry_2.size() - 2].pose) <= 1.3962634016
         ) // <= 80 degree
       {
+        double theta_tmp = 0;
         for(int i = 0; i<((int)PlanRetry_2.size()-1); i++)
         {
+          if(PlanRetry_2[i].pose.position.x!=PlanRetry_2[i+1].pose.position.x)
+          {
             double theta = calculateAngle(PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y, 
                                           PlanRetry_2[i+1].pose.position.x, PlanRetry_2[i+1].pose.position.y);
-            PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);   
+            PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);
+            theta_tmp = theta;
+          }
+          else
+          {
+            PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta_tmp);
+          }
         }
         PlanRetry_2.back().pose.orientation = pose_B.pose.orientation;
       }
-      else if(computeDeltaAngleStartOfPlan(getYaw(pose_A.pose.orientation.x, pose_A.pose.orientation.y, pose_A.pose.orientation.z, pose_A.pose.orientation.w),
-        PlanRetry_2.front().pose, PlanRetry_2[1].pose) >= 1.745329252 &&  
+      else if(/*computeDeltaAngleStartOfPlan(getYaw(pose_A.pose.orientation.x, pose_A.pose.orientation.y, pose_A.pose.orientation.z, pose_A.pose.orientation.w),
+        PlanRetry_2.front().pose, PlanRetry_2[1].pose) >= 1.745329252 &&*/  
         computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
         PlanRetry_2.back().pose, PlanRetry_2[PlanRetry_2.size() - 2].pose) >= 1.745329252) // >= 100 degree
       {
+        double theta_tmp = 0;
         for(int i = (int)PlanRetry_2.size() -1; i>0; i--)
         {
+          if(PlanRetry_2[i].pose.position.x!=PlanRetry_2[i-1].pose.position.x)
+          {
             double theta = calculateAngle(PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y, 
                                           PlanRetry_2[i-1].pose.position.x, PlanRetry_2[i-1].pose.position.y);
-            PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);   
+            PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);
+            theta_tmp = theta;
+          }
+          else
+          {
+            PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta_tmp);
+          }  
         }
         PlanRetry_2.front().pose.orientation = PlanRetry_2[1].pose.orientation;
       }
@@ -507,30 +543,48 @@ bool makePlanForRetry(geometry_msgs::PoseStamped& pose_A, geometry_msgs::PoseSta
       {
         ROS_INFO("Pose %d in PlanRetry : %f, %f", i, PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y);
       }
-      if(computeDeltaAngleStartOfPlan(getYaw(pose_A.pose.orientation.x, pose_A.pose.orientation.y, pose_A.pose.orientation.z, pose_A.pose.orientation.w),
-        PlanRetry_2.front().pose, PlanRetry_2[1].pose) <= 1.3962634016 &&  
+      if(/*computeDeltaAngleStartOfPlan(getYaw(pose_A.pose.orientation.x, pose_A.pose.orientation.y, pose_A.pose.orientation.z, pose_A.pose.orientation.w),
+        PlanRetry_2.front().pose, PlanRetry_2[1].pose) <= 1.3962634016 &&*/
         computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
         PlanRetry_2.back().pose, PlanRetry_2[PlanRetry_2.size() - 2].pose) <= 1.3962634016
         ) // <= 80 degree
       {
+        double theta_tmp = 0;
         for(int i = 0; i<((int)PlanRetry_2.size()-1); i++)
         {
+          if(PlanRetry_2[i].pose.position.x!=PlanRetry_2[i+1].pose.position.x)
+          {
             double theta = calculateAngle(PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y, 
                                           PlanRetry_2[i+1].pose.position.x, PlanRetry_2[i+1].pose.position.y);
-            PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);   
+            PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);
+            theta_tmp = theta;
+          }
+          else
+          {
+            PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta_tmp);
+          }
         }
         PlanRetry_2.back().pose.orientation = pose_B.pose.orientation;
       }
-      else if(computeDeltaAngleStartOfPlan(getYaw(pose_A.pose.orientation.x, pose_A.pose.orientation.y, pose_A.pose.orientation.z, pose_A.pose.orientation.w),
-        PlanRetry_2.front().pose, PlanRetry_2[1].pose) >= 1.745329252 &&  
+      else if(/*computeDeltaAngleStartOfPlan(getYaw(pose_A.pose.orientation.x, pose_A.pose.orientation.y, pose_A.pose.orientation.z, pose_A.pose.orientation.w),
+        PlanRetry_2.front().pose, PlanRetry_2[1].pose) >= 1.745329252 &&*/
         computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
         PlanRetry_2.back().pose, PlanRetry_2[PlanRetry_2.size() - 2].pose) >= 1.745329252) // >= 100 degree
       {
+        double theta_tmp = 0;
         for(int i = (int)PlanRetry_2.size() -1; i>0; i--)
         {
+          if(PlanRetry_2[i].pose.position.x!=PlanRetry_2[i-1].pose.position.x)
+          {
             double theta = calculateAngle(PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y, 
                                           PlanRetry_2[i-1].pose.position.x, PlanRetry_2[i-1].pose.position.y);
-            PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);   
+            PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);
+            theta_tmp = theta; 
+          }
+          else
+          {
+            PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta_tmp);
+          }
         }
         PlanRetry_2.front().pose.orientation = PlanRetry_2[1].pose.orientation;
       }
