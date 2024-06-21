@@ -229,7 +229,7 @@ bool makePlanForRetry(std::vector<geometry_msgs::PoseStamped>& current_plan,
       pose_B.pose, pose_A.pose) >= 0))
   {
     std::vector<geometry_msgs::PoseStamped> planSegment_AB;
-    planSegment_AB = divideSegment(pose_A, pose_B, 0.008);
+    planSegment_AB = divideSegment(pose_A, pose_B, 0.1);
     PlanRetry_2.assign(planSegment_AB.begin(), planSegment_AB.end());
   }
   else
@@ -371,7 +371,7 @@ bool makePlanForRetry(std::vector<geometry_msgs::PoseStamped>& current_plan,
   }
 
   // Tạo đoạn đường từ poseB -> poseB_behind
-  PlanRetry_3 = divideSegment(pose_B, pose_B_behind, 0.008);
+  PlanRetry_3 = divideSegment(pose_B, pose_B_behind, 0.1);
   
   ros::Time plan_time = ros::Time::now();
   if(!PlanRetry_1.empty()&&!PlanRetry_2.empty()&&!PlanRetry_3.empty())
@@ -436,7 +436,7 @@ bool makePlanForRetry(geometry_msgs::PoseStamped& pose_A, geometry_msgs::PoseSta
 
   // Tính ra PlanRetry_1 điểm retry tại Pose_A
 
-  PlanRetry_1 = divideSegment(pose_B, pose_A, 0.008);
+  PlanRetry_1 = divideSegment(pose_B, pose_A, 0.1);
 
   // Tính ra PlanRetry_2 với biên dạng cung tròn đi qua pose_A và pose_B, có tâm tại pose_C
 
@@ -460,7 +460,7 @@ bool makePlanForRetry(geometry_msgs::PoseStamped& pose_A, geometry_msgs::PoseSta
       pose_B.pose, pose_A.pose) >= 0))
   {
     std::vector<geometry_msgs::PoseStamped> planSegment_AB;
-    planSegment_AB = divideSegment(pose_A, pose_B, 0.008);
+    planSegment_AB = divideSegment(pose_A, pose_B, 0.1);
     PlanRetry_2.assign(planSegment_AB.begin(), planSegment_AB.end());
   }
   else
@@ -602,7 +602,7 @@ bool makePlanForRetry(geometry_msgs::PoseStamped& pose_A, geometry_msgs::PoseSta
   }
 
   // Tạo đoạn đường từ poseB -> poseB_behind
-  PlanRetry_3 = divideSegment(pose_B, pose_B_behind, 0.008);
+  PlanRetry_3 = divideSegment(pose_B, pose_B_behind, 0.1);
   
   ros::Time plan_time = ros::Time::now();
   if(!PlanRetry_1.empty()&&!PlanRetry_2.empty()&&!PlanRetry_3.empty())

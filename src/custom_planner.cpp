@@ -211,7 +211,7 @@ namespace custom_planner
       string pathway_fullfilename = userParams_->directory_to_save_paths + "/" + userParams_->pathway_filename;        
       if(loadPathwayData(pathway_fullfilename)) cout<< "Success in load pathway file: "<<pathway_fullfilename<<endl;
       else std::cout<<pathway_fullfilename<<" is not existed"<<std::endl;
-      order_msg_sub_ = private_nh.subscribe("/order",1000,&CustomPlanner::order_msg_handle,this);
+      // order_msg_sub_ = private_nh.subscribe("/order",1000,&CustomPlanner::order_msg_handle,this);
       service_servers_.push_back(p_nh.advertiseService("set_plan_with_order", &CustomPlanner::HandleSetPlanWithOrder, this));
 
       // vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>> control_point;
@@ -432,7 +432,7 @@ namespace custom_planner
                                                       mx_end, my_end))
       {
         ROS_ERROR("[custom_planner] can not convert world to Map 'start point' or 'goal point'");
-        return false;
+        // return false;
       }
       unsigned char start_cost = costMapCostToSBPLCost(costmap_ros_->getCostmap()->getCost(mx_start, my_start));
       unsigned char end_cost = costMapCostToSBPLCost(costmap_ros_->getCostmap()->getCost(mx_end, my_end));
@@ -440,7 +440,7 @@ namespace custom_planner
         || end_cost == costMapCostToSBPLCost(costmap_2d::LETHAL_OBSTACLE) || end_cost == costMapCostToSBPLCost(costmap_2d::INSCRIBED_INFLATED_OBSTACLE))
       {
         ROS_WARN("[custom_planner] base_pootprint in infated obstacle ");
-        return false;
+        // return false;
       }   
       
       ros::Time plan_time = ros::Time::now();
@@ -1166,12 +1166,12 @@ namespace custom_planner
         uint16_t start_on_path_index_2 = start_on_path_index_tmp;
         double deltaAngle_1_min = computeDeltaAngle(PoseToCheck, posesOnPathWay[0]);
         double deltaAngle_2_min = 10;
-        double deltaAngleToRotate_1 = abs(PoseToCheck.getYaw()-posesOnPathWay[0].getYaw());
+        double deltaAngleToRotate_1 = fabs(PoseToCheck.getYaw()-posesOnPathWay[0].getYaw());
         if(deltaAngle_1_min <= 0.872664626) // <= 50 degree
         {
           if(deltaAngleToRotate_1 <= 0.872664626) // <= 50 degree
           {
-            computeSegment1Good = true;
+            // computeSegment1Good = true;
             start_on_path_index_1 = 0;
           }
         }
@@ -1183,12 +1183,12 @@ namespace custom_planner
             double dy = posesOnPathWay[i].getY() - posesOnPathWay[i-1].getY();
             SumDistanceCheck2 += sqrt(dx*dx + dy*dy);
           }
-          if(SumDistanceCheck2<2) //search distance < 2 m
+          if(SumDistanceCheck2<2.5) //search distance < 2 m
           {
             double deltaAngle_2 = computeDeltaAngle(PoseToCheck, posesOnPathWay[i]);
             if(deltaAngle_2 <= 0.7853981634) // <= 45 degree
             {
-              double deltaAngleToRotate_2 = abs(PoseToCheck.getYaw()-posesOnPathWay[i].getYaw());
+              double deltaAngleToRotate_2 = fabs(PoseToCheck.getYaw()-posesOnPathWay[i].getYaw());
               if(deltaAngleToRotate_2 <= 1.5707963268) // <= 90 degree
               {
                 if(deltaAngle_2<deltaAngle_2_min)
@@ -1251,12 +1251,12 @@ namespace custom_planner
             double dy = posesOnPathWay[i].getY() - posesOnPathWay[i+1].getY();
             SumDistanceCheck1 += sqrt(dx*dx + dy*dy);
           }          
-          if(SumDistanceCheck1<1) //search distance < 1 m
+          if(SumDistanceCheck1<2) //search distance < 2 m
           {
             double deltaAngle_1 = computeDeltaAngle(PoseToCheck, posesOnPathWay[i]);
             if(deltaAngle_1 <= 0.7853981634) // <= 45 degree
             {
-              double deltaAngleToRotate_1 = abs(PoseToCheck.getYaw()-posesOnPathWay[i].getYaw());
+              double deltaAngleToRotate_1 = fabs(PoseToCheck.getYaw()-posesOnPathWay[i].getYaw());
               if(deltaAngleToRotate_1 <= 1.5707963268) // <= 90 degree
               {
                 // ROS_WARN("index: %d deltaAngle_1: %f",i,deltaAngle_1); 
@@ -1264,7 +1264,7 @@ namespace custom_planner
                 {                                   
                   deltaAngle_1_min = deltaAngle_1;
                   start_on_path_index_1 = i;
-                  computeSegment1Good = true;
+                  // computeSegment1Good = true;
                 }
               }
             }
@@ -1283,12 +1283,12 @@ namespace custom_planner
             double dy = posesOnPathWay[i].getY() - posesOnPathWay[i-1].getY();
             SumDistanceCheck2 += sqrt(dx*dx + dy*dy);
           }
-          if(SumDistanceCheck2<2) //search distance < 2 m
+          if(SumDistanceCheck2<2.5) //search distance < 2 m
           {
             double deltaAngle_2 = computeDeltaAngle(PoseToCheck, posesOnPathWay[i]);
             if(deltaAngle_2 <= 0.7853981634) // <= 45 degree
             {
-              double deltaAngleToRotate_2 = abs(PoseToCheck.getYaw()-posesOnPathWay[i].getYaw());
+              double deltaAngleToRotate_2 = fabs(PoseToCheck.getYaw()-posesOnPathWay[i].getYaw());
               if(deltaAngleToRotate_2 <= 1.5707963268) // <= 90 degree
               {
                 // ROS_WARN("index: %d deltaAngle_2: %f",i,deltaAngle_2);
@@ -1449,7 +1449,7 @@ namespace custom_planner
         degree = (int)msg.edges[i].trajectory.degree;
         if(curveIsValid(degree, knot_vector, control_points))
         {
-          double t_intervel = 0.02;  
+          double t_intervel = 0.05;
           order = degree + 1;
           input_spline_inf->control_point.clear();
           input_spline_inf->knot_vector.clear();
@@ -1855,7 +1855,7 @@ namespace custom_planner
         pose_B.pose, pose_A.pose) >= 0))
     {
       vector<geometry_msgs::PoseStamped> planSegment_AB;
-      planSegment_AB = divideSegment(pose_A, pose_B, 0.008);
+      planSegment_AB = divideSegment(pose_A, pose_B, 0.05);
       PlanRetry_2.assign(planSegment_AB.begin(), planSegment_AB.end());
     }
     else
@@ -1866,7 +1866,7 @@ namespace custom_planner
       double yCB = pose_B.pose.position.y - pose_C.pose.position.y;
       double rCA = sqrt(xCA*xCA + yCA*yCA);
       double rCB = sqrt(xCB*xCB + yCB*yCB);
-      if(abs(rCA-rCB)>0.008)
+      if(fabs(rCA-rCB)>0.008)
       {
         ROS_WARN("pose_C is not Center of Curve AB");
         return false;
@@ -1944,20 +1944,11 @@ namespace custom_planner
           PlanRetry_2.back().pose, PlanRetry_2[PlanRetry_2.size() - 2].pose) <= 0.872664626
           ) // <= 50 degree
         {
-          double theta_tmp = 0;          
           for(int i = 0; i<((int)PlanRetry_2.size()-1); i++)
           {
-            if(PlanRetry_2[i].pose.position.x!=PlanRetry_2[i+1].pose.position.x)
-            {
               double theta = calculateAngle(PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y, 
                                             PlanRetry_2[i+1].pose.position.x, PlanRetry_2[i+1].pose.position.y);
               PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);
-              theta_tmp = theta;
-            }
-            else
-            {
-              PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta_tmp);
-            }
           }                        
           PlanRetry_2.back().pose.orientation = pose_B.pose.orientation;
         }
@@ -1966,20 +1957,11 @@ namespace custom_planner
           computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
           PlanRetry_2.back().pose, PlanRetry_2[PlanRetry_2.size() - 2].pose) >= 2.2689280276) // >= 130 degree
         {
-          double theta_tmp = 0;
           for(int i = (int)PlanRetry_2.size() -1; i>0; i--)
           {
-            if(PlanRetry_2[i].pose.position.x!=PlanRetry_2[i-1].pose.position.x)
-            {
               double theta = calculateAngle(PlanRetry_2[i].pose.position.x, PlanRetry_2[i].pose.position.y, 
                                             PlanRetry_2[i-1].pose.position.x, PlanRetry_2[i-1].pose.position.y);
               PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);
-              theta_tmp = theta;
-            }
-            else
-            {
-              PlanRetry_2[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta_tmp);
-            }
           }
           PlanRetry_2.front().pose.orientation = PlanRetry_2[1].pose.orientation;
         }
@@ -2203,20 +2185,11 @@ namespace custom_planner
     {
       if(!posesOnEdge.empty()){
         if(posesOnEdge.size()>2){
-          double theta_tmp = 0;
           for(int i = 0; i<((int)posesOnEdge.size()-1); i++)
           {
-            if(posesOnEdge[i].getX()!=posesOnEdge[i+1].getX())
-            {
-              double theta = calculateAngle(posesOnEdge[i].getX(), posesOnEdge[i].getY(), 
-                                            posesOnEdge[i+1].getX(), posesOnEdge[i+1].getY());
-              posesOnEdge[i].setYaw(theta);
-              theta_tmp = theta;
-            }
-            else
-            {
-              posesOnEdge[i].setYaw(theta_tmp);
-            }
+            double theta = calculateAngle(posesOnEdge[i].getX(), posesOnEdge[i].getY(), 
+                                          posesOnEdge[i+1].getX(), posesOnEdge[i+1].getY());
+            posesOnEdge[i].setYaw(theta);
           }
           posesOnEdge.back().setYaw(posesOnEdge[posesOnEdge.size()-2].getYaw());          
         }
@@ -2225,7 +2198,7 @@ namespace custom_planner
           if(posesOnEdge[0].getX()!=posesOnEdge[1].getX())
           {
             double theta = calculateAngle(posesOnEdge[0].getX(), posesOnEdge[0].getY(), 
-                                              posesOnEdge[1].getX(), posesOnEdge[1].getY());
+                                              posesOnEdge[1].getX(), posesOnEdge[1].getY());            
             posesOnEdge[0].setYaw(theta);
             posesOnEdge[1].setYaw(theta);   
           }                                      
@@ -2236,20 +2209,11 @@ namespace custom_planner
     {
       if(!posesOnEdge.empty()){
         if(posesOnEdge.size()>2){    
-          double theta_tmp = 0;
           for(int i = (int)posesOnEdge.size() -1; i>0; i--)
           {
-            if(posesOnEdge[i].getX()!=posesOnEdge[i-1].getX())
-            {
-              double theta = calculateAngle(posesOnEdge[i].getX(), posesOnEdge[i].getY(), 
-                                            posesOnEdge[i-1].getX(), posesOnEdge[i-1].getY());
-              posesOnEdge[i].setYaw(theta);
-              theta_tmp = theta;
-            }
-            else
-            {
-              posesOnEdge[i].setYaw(theta_tmp);
-            } 
+            double theta = calculateAngle(posesOnEdge[i].getX(), posesOnEdge[i].getY(), 
+                                          posesOnEdge[i-1].getX(), posesOnEdge[i-1].getY());
+            posesOnEdge[i].setYaw(theta);
           }
           posesOnEdge.front().setYaw(posesOnEdge[1].getYaw());
         }
@@ -2464,20 +2428,11 @@ namespace custom_planner
           computeDeltaAngleEndOfPlan(getYaw(B.pose.orientation.x, B.pose.orientation.y, B.pose.orientation.z, B.pose.orientation.w),
           Poses.back().pose, Poses[Poses.size() - 2].pose) <= 1.3962634016) // <= 80 degree
         {
-          double theta_tmp = 0;
           for(int i = 0; i<((int)Poses.size()-1); i++)
           {
-            if(Poses[i].pose.position.x!=Poses[i+1].pose.position.x)
-            {
               double theta = calculateAngle(Poses[i].pose.position.x, Poses[i].pose.position.y, 
                                             Poses[i+1].pose.position.x, Poses[i+1].pose.position.y);
               Poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);
-              theta_tmp = theta;
-            }
-            else
-            {
-              Poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta_tmp);
-            }
           }
           Poses.back().pose.orientation = B.pose.orientation;
         }
@@ -2486,20 +2441,11 @@ namespace custom_planner
                 computeDeltaAngleEndOfPlan(getYaw(B.pose.orientation.x, B.pose.orientation.y, B.pose.orientation.z, B.pose.orientation.w),
                 Poses.back().pose, Poses[Poses.size() - 2].pose) >= 1.745329252) // >= 100 degree
         {
-          double theta_tmp = 0;
           for(int i = (int)Poses.size() -1; i>0; i--)
           {
-              if(Poses[i].pose.position.x!=Poses[i-1].pose.position.x)
-              {
                 double theta = calculateAngle(Poses[i].pose.position.x, Poses[i].pose.position.y, 
                                               Poses[i-1].pose.position.x, Poses[i-1].pose.position.y);
                 Poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);  
-                theta_tmp = theta;
-              }
-              else
-              {
-                Poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta_tmp);
-              }
           }
           Poses.front().pose.orientation = A.pose.orientation;
         }
@@ -2535,7 +2481,7 @@ namespace custom_planner
         pose_B, pose_A) >= 0))
     {
       vector<Pose> planSegment_AB;
-      planSegment_AB = divideSegment(pose_A, pose_B, 0.01);
+      planSegment_AB = divideSegment(pose_A, pose_B, 0.05);
       result_plan.assign(planSegment_AB.begin(), planSegment_AB.end());
       ROS_WARN("[custom_planner][makeCurvePlan] Curve AB is almost a straight line 1");
     }
@@ -2551,7 +2497,7 @@ namespace custom_planner
         double yCB = pose_B.getY() - pose_C.getY();
         double rCA = sqrt(xCA*xCA + yCA*yCA);
         double rCB = sqrt(xCB*xCB + yCB*yCB);
-        if(abs(rCA-rCB)>0.008)
+        if(fabs(rCA-rCB)>0.008)
         {
           ROS_WARN("[custom_planner][makeCurvePlan] pose_C is not Center of Curve AB");
           return false;
@@ -2624,40 +2570,22 @@ namespace custom_planner
           if(//computeDeltaAngleStartNode(pose_A.getYaw(), result_plan.front(), result_plan[1]) < 1.5707963268 &&  
             computeDeltaAngleEndNode(pose_B.getYaw(), result_plan.back(), result_plan[result_plan.size() - 2]) <= 1.3962634016) // <= 80 degree
           {
-            double theta_tmp = 0;
             for(int i = 0; i<((int)result_plan.size()-1); i++)
             {
-                if(result_plan[i].getX()!=result_plan[i+1].getX())
-                {
                   double theta = calculateAngle(result_plan[i].getX(), result_plan[i].getY(), 
                                                 result_plan[i+1].getX(), result_plan[i+1].getY());                  
                   result_plan[i].setYaw(theta);
-                  theta_tmp = theta;
-                }
-                else
-                {
-                  result_plan[i].setYaw(theta_tmp);
-                }
             }
             result_plan.back().setYaw(pose_B.getYaw());
           }
           else if(//computeDeltaAngleStartNode(pose_A.getYaw(), result_plan.front(), result_plan[1]) >= 1.5707963268 &&  
             computeDeltaAngleEndNode(pose_B.getYaw(), result_plan.back(), result_plan[result_plan.size() - 2]) >= 1.745329252) // >= 100 degree
           {
-            double theta_tmp = 0;
             for(int i = (int)result_plan.size() -1; i>0; i--)
             {              
-                if(result_plan[i].getX()!=result_plan[i-1].getX())
-                {
                   double theta = calculateAngle(result_plan[i].getX(), result_plan[i].getY(), 
                                                 result_plan[i-1].getX(), result_plan[i-1].getY());
                   result_plan[i].setYaw(theta); 
-                  theta_tmp = theta;
-                }
-                else
-                {
-                  result_plan[i].setYaw(theta_tmp);
-                }
             }
             result_plan.front().setYaw(result_plan[1].getYaw());
           }
