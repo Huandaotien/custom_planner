@@ -136,12 +136,8 @@ private:
   inline double calculateAngle(double xA, double yA, double xB, double yB) {
     double deltaX = xB - xA;
     double deltaY = yB - yA;
-    double angleRad = 0;
-    if(deltaX!=0)
-    {
-      angleRad = atan2(deltaY, deltaX);
-      // double angleDeg = angleRad * 180.0 / M_PI;
-    }
+    double angleRad = atan2(deltaY, deltaX);
+    // double angleDeg = angleRad * 180.0 / M_PI;
     return angleRad;
   }
 

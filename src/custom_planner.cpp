@@ -1449,7 +1449,7 @@ namespace custom_planner
         degree = (int)msg.edges[i].trajectory.degree;
         if(curveIsValid(degree, knot_vector, control_points))
         {
-          double t_intervel = 0.05;
+          double t_intervel = 0.01;  
           order = degree + 1;
           input_spline_inf->control_point.clear();
           input_spline_inf->knot_vector.clear();
@@ -1514,21 +1514,29 @@ namespace custom_planner
               if(posesOnEdge.front().getX()==posesOnPathWay.back().getX()&&
                   posesOnEdge.front().getY()==posesOnPathWay.back().getY())
               {
-                if(computeDeltaAngleStartNode(posesOnPathWay.back().getYaw(), posesOnEdge.front().getYaw(), posesOnEdge.front()) <= 0.872664626) // <= 50 degree
-                {
-                    // if yaw angle of the end pose in posesOnPathWay is default, set it to yaw angle of start pose in posesOnEdge
-                    posesOnPathWay.back().setYaw(posesOnEdge.front().getYaw());
-                    posesOnPathWay.insert(posesOnPathWay.end(), posesOnEdge.begin()+1, posesOnEdge.end());                
+                if(i!=1){ // don't check angle of edge 1
+                  if(computeDeltaAngleStartNode(posesOnPathWay.back().getYaw(), posesOnEdge.front().getYaw(), posesOnEdge.front()) <= 0.872664626) // <= 50 degree
+                  {
+                      // if yaw angle of the end pose in posesOnPathWay is default, set it to yaw angle of start pose in posesOnEdge
+                      posesOnPathWay.back().setYaw(posesOnEdge.front().getYaw());
+                      posesOnPathWay.insert(posesOnPathWay.end(), posesOnEdge.begin()+1, posesOnEdge.end());                
+                  }
+                  else
+                  {
+                    ROS_WARN("Trajectory of Edge: %s, startNode: %s, endNode: %s is not good", 
+                    msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str(),  msg.edges[i].endNodeId.c_str());
+                    status = 3;
+                    message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
+                    ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
+                    return false;
+                    break;                  
+                  }
                 }
                 else
                 {
-                  ROS_WARN("Trajectory of Edge: %s, startNode: %s, endNode: %s is not good", 
-                  msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str(),  msg.edges[i].endNodeId.c_str());
-                  status = 3;
-                  message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
-                  ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-                  return false;
-                  break;                  
+                  // if yaw angle of the end pose in posesOnPathWay is default, set it to yaw angle of start pose in posesOnEdge
+                  posesOnPathWay.back().setYaw(posesOnEdge.front().getYaw());
+                  posesOnPathWay.insert(posesOnPathWay.end(), posesOnEdge.begin()+1, posesOnEdge.end());
                 }
               }
               else
