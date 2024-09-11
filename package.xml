@@ -43,9 +43,6 @@
   <build_depend>xloc_msgs</build_depend>
   <exec_depend>xloc_msgs</exec_depend>
 
-  <build_depend>vda5050_msgs</build_depend>
-  <exec_depend>vda5050_msgs</exec_depend>
-
   <export>
     <nav_core plugin="${prefix}/bgp_plugin.xml" />
   </export>

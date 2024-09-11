@@ -1,0 +1,8 @@
+uint8 OK=0 # Trạng thái OK
+uint8 TRAJECTORY_NOTGOOD=1 # Quỹ đạo không phù hợp để robot di chuyển
+
+nav_msgs/Path guide_path
+---
+bool success # True: Đã nhận order message, thông tin hợp lệ. False: nhận order message không thành công hoặc thông tin không hợp lệ.
+uint8 status # Trạng thái tuân theo enum bên trên.
+string message # Hiển thị thông tin chi tiết về trạng thái.

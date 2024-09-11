@@ -35,20 +35,13 @@ using namespace std;
 #include "custom_planner/Curve_common.h"
 #include "custom_planner/conversion.h"
 #include "custom_planner/PlanWithOrder.h"
+#include "custom_planner/PlanWithNavPath.h"
 
 #include <geometry_msgs/PoseArray.h>
+#include <nav_msgs/Path.h>
 
 #include <thread>
 #include <boost/thread.hpp>
-
-#include "vda5050_msgs/Order.h"
-#include "vda5050_msgs/Trajectory.h"
-#include "vda5050_msgs/Edge.h"
-#include "vda5050_msgs/Node.h"
-#include "vda5050_msgs/ControlPoint.h"
-#include "vda5050_msgs/NodePosition.h"
-
-
 
 using namespace std;
 
@@ -145,10 +138,9 @@ private:
 
   bool findNearestPoseOfPath(vector<Pose>& posesOnPathWay, Pose& PoseToCheck, Pose& PoseResult);
 
-  void order_msg_handle(const vda5050_msgs::Order::ConstPtr& msg);
-  bool HandleSetPlanWithOrder(custom_planner::PlanWithOrder::Request& request, custom_planner::PlanWithOrder::Response& response);
+  bool HandleSetPlanWithNavPath(custom_planner::PlanWithNavPath::Request& request, custom_planner::PlanWithNavPath::Response& response);
 
-  bool makePlanWithOrder(vda5050_msgs::Order msg, uint8_t& status, string& message, bool is_move_backward);
+  bool makePlanWithNavPath(nav_msgs::Path& guide_path, uint8_t& status, std::string& message);
 
   bool makePlanForRetry(std::vector<geometry_msgs::PoseStamped>& current_plan, 
     int indexOfPoseA, geometry_msgs::PoseStamped& pose_B, 

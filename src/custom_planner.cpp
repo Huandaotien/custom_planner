@@ -211,8 +211,7 @@ namespace custom_planner
       string pathway_fullfilename = userParams_->directory_to_save_paths + "/" + userParams_->pathway_filename;        
       if(loadPathwayData(pathway_fullfilename)) cout<< "Success in load pathway file: "<<pathway_fullfilename<<endl;
       else std::cout<<pathway_fullfilename<<" is not existed"<<std::endl;
-      // order_msg_sub_ = private_nh.subscribe("/order",1000,&CustomPlanner::order_msg_handle,this);
-      service_servers_.push_back(p_nh.advertiseService("set_plan_with_order", &CustomPlanner::HandleSetPlanWithOrder, this));
+      service_servers_.push_back(p_nh.advertiseService("set_plan_with_nav_path", &CustomPlanner::HandleSetPlanWithNavPath, this));
 
       // vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>> control_point;
       // control_point.push_back(Eigen::Vector3d(18.383729, 10.68481159, 0));
@@ -1360,46 +1359,22 @@ namespace custom_planner
     return result;
   }
 
-  void CustomPlanner::order_msg_handle(const vda5050_msgs::Order::ConstPtr& msg)
+  bool CustomPlanner::HandleSetPlanWithNavPath(
+        custom_planner::PlanWithNavPath::Request& request, 
+        custom_planner::PlanWithNavPath::Response& response)
   {
     uint8_t status;
     string message;
-    if(makePlanWithOrder(*msg, status, message, false))
+    if(makePlanWithNavPath(request.guide_path, status, message))
     {
-      ROS_INFO("Success to make plan with order");
       test_print_plan_result();
-    }
-    else if(makePlanWithOrder(*msg, status, message, true))
-    {
-      ROS_INFO("Success to make plan with order");
-      test_print_plan_result();
-    }
-    else
-    {
-      ROS_WARN("%s",message.c_str());
-    }
-  }
-
-  bool CustomPlanner::HandleSetPlanWithOrder(
-        custom_planner::PlanWithOrder::Request& request,
-        custom_planner::PlanWithOrder::Response& response)
-  {
-    uint8_t status;
-    string message;
-    if(makePlanWithOrder(request.order, status, message, false))
-    {
-      response.status = status;
-      response.message = message;
-      response.success = true;
-    }
-    else if(makePlanWithOrder(request.order, status, message, true))
-    {
       response.status = status;
       response.message = message;
       response.success = true;
     }
     else
     {
+      test_print_plan_result();
       response.status = status;
       response.message = message;
       response.success = false;
@@ -1407,412 +1382,49 @@ namespace custom_planner
     return true;
   }
 
-  bool CustomPlanner::makePlanWithOrder(vda5050_msgs::Order msg, uint8_t& status, string& message, bool is_move_backward)
+  bool CustomPlanner::makePlanWithNavPath(nav_msgs::Path& guide_path, uint8_t& status, std::string& message)
   {
-    orderNodes.clear();
-    posesOnPathWay.clear();
-    if((int)msg.nodes.size()==0&&(int)msg.edges.size()==0)
+    if(guide_path.poses.empty())
     {
       status = 1;
-      message = "Nodes and Edges in Order is empty";
-      return false;
+      message = "[custom_planner] The guide path is empty.";
     }
-    for(int i=0;i<(int)msg.nodes.size();i++)
+    else
     {
-      orderNodes[msg.nodes[i].nodeId] = {msg.nodes[i].nodeId, msg.nodes[i].sequenceId, 
-      (double)msg.nodes[i].nodePosition.x, (double)msg.nodes[i].nodePosition.y, (double)msg.nodes[i].nodePosition.theta};
-    }
-    for(int i=0;i<(int)msg.edges.size();i++)
-    {      
-      auto start_nodeId_it = orderNodes.find(msg.edges[i].startNodeId);
-      auto end_nodeId_it = orderNodes.find(msg.edges[i].endNodeId);
-      if(start_nodeId_it!=orderNodes.end()&&end_nodeId_it!=orderNodes.end())
+      posesOnPathWay.clear();
+      for(int i = 0; i < (int)guide_path.poses.size()-1; i++)
       {
-        vector<Pose> posesOnEdge;
-        vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>> control_points;
-        std::vector<double> knot_vector;
-        std::vector<double> weight_vector;
-        int degree = 0;
-        int order = 0;
-        control_points.reserve(msg.edges[i].trajectory.controlPoints.size());
-        knot_vector.reserve(msg.edges[i].trajectory.knotVector.size());
-        weight_vector.reserve(msg.edges[i].trajectory.controlPoints.size());
-        for(int j = 0;j<(int)msg.edges[i].trajectory.controlPoints.size();j++)
+        double yaw_t1 = getYaw(guide_path.poses[i].pose.orientation.x,
+                              guide_path.poses[i].pose.orientation.y,
+                              guide_path.poses[i].pose.orientation.z,
+                              guide_path.poses[i].pose.orientation.w);
+        double yaw_t2 = getYaw(guide_path.poses[i+1].pose.orientation.x,
+                              guide_path.poses[i+1].pose.orientation.y,
+                              guide_path.poses[i+1].pose.orientation.z,
+                              guide_path.poses[i+1].pose.orientation.w);
+        if(std::abs(yaw_t2-yaw_t1) <= 1.0471975512) // <= 60 degree
         {
-          control_points.push_back(Eigen::Vector3d(msg.edges[i].trajectory.controlPoints[j].x, msg.edges[i].trajectory.controlPoints[j].y, 0));
-          weight_vector.push_back(msg.edges[i].trajectory.controlPoints[j].weight);
+          posesOnPathWay.emplace_back(Pose(guide_path.poses[i].pose.position.x, guide_path.poses[i].pose.position.y, yaw_t1));
         }
-        for(int k = 0 ;k < (int)msg.edges[i].trajectory.knotVector.size();k++)
+        else
         {
-          knot_vector.push_back(msg.edges[i].trajectory.knotVector[k]);
-        }
-        degree = (int)msg.edges[i].trajectory.degree;
-        if(curveIsValid(degree, knot_vector, control_points))
-        {
-          double t_intervel = 0.01;  
-          order = degree + 1;
-          input_spline_inf->control_point.clear();
-          input_spline_inf->knot_vector.clear();
-          input_spline_inf->weight.clear();  
-          CurveDesign->ReadSplineInf(input_spline_inf, order, control_points, knot_vector);
-          CurveDesign->ReadSplineInf(input_spline_inf, weight_vector, false);
-          for(double u_test = 0; u_test <= 1; u_test += t_intervel)
-          {  
-            geometry_msgs::Point curve_point;
-            curve_point = CurveDesign->CalculateCurvePoint(input_spline_inf, u_test, true);
-            if(!std::isnan(curve_point.x)&&!std::isnan(curve_point.y))
-            posesOnEdge.push_back(Pose(curve_point.x, curve_point.y, 0));
-            // ROS_INFO("curve_point: %f, %f   at u: %f",curve_point.x, curve_point.y, u_test);
-          }
-          if(!isThetaValid(orderNodes[msg.edges[i].startNodeId].theta)&&!isThetaValid(orderNodes[msg.edges[i].endNodeId].theta))
-          {
-            // if startNode of this edge and start element of posesOnEdge are the different point
-            if(orderNodes[msg.edges[i].startNodeId].position_x!=posesOnEdge.front().getX()||
-              orderNodes[msg.edges[i].startNodeId].position_y!=posesOnEdge.front().getY())
-            {
-              posesOnEdge.insert(posesOnEdge.begin(), Pose(orderNodes[msg.edges[i].startNodeId].position_x, orderNodes[msg.edges[i].startNodeId].position_y, 0.0123443210));              
-            }
-            // if endNode of this edge and end element of posesOnEdge are the different point
-            if(orderNodes[msg.edges[i].endNodeId].position_x!=posesOnEdge.back().getX()||
-              orderNodes[msg.edges[i].endNodeId].position_y!=posesOnEdge.back().getY())
-            {
-              posesOnEdge.insert(posesOnEdge.end(), Pose(orderNodes[msg.edges[i].endNodeId].position_x, orderNodes[msg.edges[i].endNodeId].position_y, 0.0123443210));              
-            }
-            if(!posesOnPathWay.empty())
-            {
-              if(computeDeltaAngleStartNode(posesOnPathWay.back().getYaw(), posesOnEdge.front(), posesOnEdge[1]) <= 0.872664626)
-              {
-                setYawAllPosesOnEdge(posesOnEdge, false);
-              }
-              else if(computeDeltaAngleStartNode(posesOnPathWay.back().getYaw(), posesOnEdge.front(), posesOnEdge[1]) >= 2.2689280276)
-              {
-                setYawAllPosesOnEdge(posesOnEdge, true);
-              }
-              else
-              {
-                ROS_WARN("Trajectory of Edge: %s, startNode: %s, endNode: %s is not good", 
-                msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str(),  msg.edges[i].endNodeId.c_str());
-                status = 3;
-                message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
-                ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-                return false;
-                break;
-              }
-            }
-            else
-            {
-              if(is_move_backward==false)
-              {
-                setYawAllPosesOnEdge(posesOnEdge, false);
-              }
-              else{
-                setYawAllPosesOnEdge(posesOnEdge, true);
-              }
-            }
-            if(!posesOnPathWay.empty())  // posesOnPathWay has datas 
-            {
-              if(posesOnEdge.front().getX()==posesOnPathWay.back().getX()&&
-                  posesOnEdge.front().getY()==posesOnPathWay.back().getY())
-              {
-                if(i!=1){ // don't check angle of edge 1
-                  if(computeDeltaAngleStartNode(posesOnPathWay.back().getYaw(), posesOnEdge.front().getYaw(), posesOnEdge.front()) <= 0.872664626) // <= 50 degree
-                  {
-                      // if yaw angle of the end pose in posesOnPathWay is default, set it to yaw angle of start pose in posesOnEdge
-                      posesOnPathWay.back().setYaw(posesOnEdge.front().getYaw());
-                      posesOnPathWay.insert(posesOnPathWay.end(), posesOnEdge.begin()+1, posesOnEdge.end());                
-                  }
-                  else
-                  {
-                    ROS_WARN("Trajectory of Edge: %s, startNode: %s, endNode: %s is not good", 
-                    msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str(),  msg.edges[i].endNodeId.c_str());
-                    status = 3;
-                    message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
-                    ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-                    return false;
-                    break;                  
-                  }
-                }
-                else
-                {
-                  // if yaw angle of the end pose in posesOnPathWay is default, set it to yaw angle of start pose in posesOnEdge
-                  posesOnPathWay.back().setYaw(posesOnEdge.front().getYaw());
-                  posesOnPathWay.insert(posesOnPathWay.end(), posesOnEdge.begin()+1, posesOnEdge.end());
-                }
-              }
-              else
-              {
-                ROS_WARN("Trajectory of Edge: %s. startNode: %s has posision invalid", 
-                msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str());
-                status = 3;
-                message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
-                ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-                return false;
-                break;                
-              }
-            }
-            else // posesOnPathWay is empty
-            {
-              posesOnPathWay.insert(posesOnPathWay.end(), posesOnEdge.begin(), posesOnEdge.end());
-            }      
-          }
-          else if(!isThetaValid(orderNodes[msg.edges[i].startNodeId].theta)&&isThetaValid(orderNodes[msg.edges[i].endNodeId].theta))
-          {
-            // if startNode of this edge and start element of posesOnEdge are the different point
-            if(orderNodes[msg.edges[i].startNodeId].position_x!=posesOnEdge.front().getX()||
-              orderNodes[msg.edges[i].startNodeId].position_y!=posesOnEdge.front().getY())
-            {
-              posesOnEdge.insert(posesOnEdge.begin(), Pose(orderNodes[msg.edges[i].startNodeId].position_x, orderNodes[msg.edges[i].startNodeId].position_y, 0.0123443210));              
-            }
-            // if endNode of this edge and end element of posesOnEdge are the different point
-            if(orderNodes[msg.edges[i].endNodeId].position_x!=posesOnEdge.back().getX()||
-              orderNodes[msg.edges[i].endNodeId].position_y!=posesOnEdge.back().getY())
-            {
-              posesOnEdge.insert(posesOnEdge.end(), 
-              Pose(orderNodes[msg.edges[i].endNodeId].position_x, orderNodes[msg.edges[i].endNodeId].position_y, orderNodes[msg.edges[i].endNodeId].theta));              
-            }
-            if(i==((int)msg.edges.size()-1))
-            {
-              if(computeDeltaAngleEndNode(orderNodes[msg.edges[i].endNodeId].theta, posesOnEdge.back(), posesOnEdge[posesOnEdge.size()-2]) <= 1.5707963268) // <= 90 degree
-              {
-                setYawAllPosesOnEdge(posesOnEdge, false);
-                posesOnEdge.back().setYaw(orderNodes[msg.edges[i].endNodeId].theta); // set yaw angle of the end pose to endNode theta
-              }
-              else
-              {
-                setYawAllPosesOnEdge(posesOnEdge, true);
-                posesOnEdge.back().setYaw(orderNodes[msg.edges[i].endNodeId].theta); // set yaw angle of the end pose to endNode theta
-              }
-            }
-            else
-            {            
-              if(computeDeltaAngleEndNode(orderNodes[msg.edges[i].endNodeId].theta, posesOnEdge.back(), posesOnEdge[posesOnEdge.size()-2]) <= 0.872664626) // <= 50 degree
-              {
-                setYawAllPosesOnEdge(posesOnEdge, false);
-                posesOnEdge.back().setYaw(orderNodes[msg.edges[i].endNodeId].theta); // set yaw angle of the end pose to endNode theta
-              }
-              else if(computeDeltaAngleEndNode(orderNodes[msg.edges[i].endNodeId].theta, posesOnEdge.back(), posesOnEdge[posesOnEdge.size()-2]) >= 2.2689280276) // >= 130 degree
-              {
-                setYawAllPosesOnEdge(posesOnEdge, true);
-                posesOnEdge.back().setYaw(orderNodes[msg.edges[i].endNodeId].theta); // set yaw angle of the end pose to endNode theta
-              }
-              else
-              {
-                ROS_WARN("Trajectory of Edge: %s, startNode: %s, endNode: %s is not good", 
-                msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str(),  msg.edges[i].endNodeId.c_str());
-                status = 3;
-                message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
-                ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-                return false;
-                break;                
-              }
-            }            
-            if(!posesOnPathWay.empty())  // posesOnPathWay has datas 
-            {
-              if(posesOnEdge.front().getX()==posesOnPathWay.back().getX()&&
-                  posesOnEdge.front().getY()==posesOnPathWay.back().getY())
-              {
-                if(computeDeltaAngleStartNode(posesOnPathWay.back().getYaw(), posesOnEdge.front().getYaw(), posesOnEdge.front()) <= 0.872664626) // <= 50 degree
-                {
-                    // if yaw angle of the end pose in posesOnPathWay is default, set it to yaw angle of start pose in posesOnEdge
-                    posesOnPathWay.back().setYaw(posesOnEdge.front().getYaw());
-                    posesOnPathWay.insert(posesOnPathWay.end(), posesOnEdge.begin()+1, posesOnEdge.end());                
-                }
-                else
-                {
-                  ROS_WARN("Trajectory of Edge: %s, startNode: %s, endNode: %s is not good", 
-                  msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str(),  msg.edges[i].endNodeId.c_str());
-                  status = 3;
-                  message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
-                  ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-                  return false;
-                  break;                  
-                }
-              }
-              else
-              {
-                ROS_WARN("Trajectory of Edge: %s. startNode: %s has posision invalid", 
-                msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str());
-                status = 3;
-                message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
-                ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-                return false;
-                break;                
-              }
-            }
-            else // posesOnPathWay is empty
-            {
-              posesOnPathWay.insert(posesOnPathWay.end(), posesOnEdge.begin(), posesOnEdge.end());
-            }  
-          }
-          else if(isThetaValid(orderNodes[msg.edges[i].startNodeId].theta)&&!isThetaValid(orderNodes[msg.edges[i].endNodeId].theta))
-          { 
-            // if startNode of this edge and start element of posesOnEdge are the different point
-            if(orderNodes[msg.edges[i].startNodeId].position_x!=posesOnEdge.front().getX()||
-              orderNodes[msg.edges[i].startNodeId].position_y!=posesOnEdge.front().getY())
-            {
-              posesOnEdge.insert(posesOnEdge.begin(), 
-              Pose(orderNodes[msg.edges[i].startNodeId].position_x, orderNodes[msg.edges[i].startNodeId].position_y, orderNodes[msg.edges[i].startNodeId].theta));              
-            }
-            // if endNode of this edge and end element of posesOnEdge are the different point
-            if(orderNodes[msg.edges[i].endNodeId].position_x!=posesOnEdge.back().getX()||
-              orderNodes[msg.edges[i].endNodeId].position_y!=posesOnEdge.back().getY())
-            {
-              posesOnEdge.insert(posesOnEdge.end(), 
-              Pose(orderNodes[msg.edges[i].endNodeId].position_x, orderNodes[msg.edges[i].endNodeId].position_y, 0.0123443210));          
-            }
-            if(computeDeltaAngleStartNode(orderNodes[msg.edges[i].startNodeId].theta, posesOnEdge.front(), posesOnEdge[1]) <= 0.872664626) // <= 50 degree)
-            {
-              setYawAllPosesOnEdge(posesOnEdge, false);
-              posesOnEdge.front().setYaw(orderNodes[msg.edges[i].startNodeId].theta); // set yaw angle of the start pose to startNode theta
-            }
-            else if(computeDeltaAngleStartNode(orderNodes[msg.edges[i].startNodeId].theta, posesOnEdge.front(), posesOnEdge[1]) >= 2.2689280276) // >= 130 degree
-            {
-              setYawAllPosesOnEdge(posesOnEdge, true);
-              posesOnEdge.front().setYaw(orderNodes[msg.edges[i].startNodeId].theta); // set yaw angle of the start pose to startNode theta
-            }
-            else
-            {
-              ROS_WARN("Trajectory of Edge: %s, startNode: %s, endNode: %s is not good", 
-              msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str(),  msg.edges[i].endNodeId.c_str());
-              status = 3;
-              message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
-              ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-              return false;
-              break;              
-            }
-            if(!posesOnPathWay.empty())  // posesOnPathWay has datas 
-            {
-              if(posesOnEdge.front().getX()==posesOnPathWay.back().getX()&&
-                  posesOnEdge.front().getY()==posesOnPathWay.back().getY())
-              {
-                if(computeDeltaAngleStartNode(posesOnPathWay.back().getYaw(), posesOnEdge.front().getYaw(), posesOnEdge.front()) <= 0.872664626) // <= 50 degree
-                {
-                    // if yaw angle of the end pose in posesOnPathWay is default, set it to yaw angle of start pose in posesOnEdge
-                    posesOnPathWay.back().setYaw(posesOnEdge.front().getYaw());
-                    posesOnPathWay.insert(posesOnPathWay.end(), posesOnEdge.begin()+1, posesOnEdge.end());                
-                }
-                else
-                {
-                  ROS_WARN("Trajectory of Edge: %s, startNode: %s, endNode: %s is not good", 
-                  msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str(),  msg.edges[i].endNodeId.c_str());
-                  status = 3;
-                  message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
-                  ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-                  return false;
-                  break;                  
-                }
-              }
-              else
-              {
-                ROS_WARN("Trajectory of Edge: %s. startNode: %s has posision invalid", 
-                msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str());
-                status = 3;
-                message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
-                ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-                return false;
-                break;                
-              }
-            }
-            else // posesOnPathWay is empty
-            {
-              posesOnPathWay.insert(posesOnPathWay.end(), posesOnEdge.begin(), posesOnEdge.end());
-            } 
-          }
-          else // startNode and endNode have valid theta
-          {
-            // if startNode of this edge and start element of posesOnEdge are the different point
-            if(orderNodes[msg.edges[i].startNodeId].position_x!=posesOnEdge.front().getX()||
-              orderNodes[msg.edges[i].startNodeId].position_y!=posesOnEdge.front().getY())
-            {
-              posesOnEdge.insert(posesOnEdge.begin(), 
-              Pose(orderNodes[msg.edges[i].startNodeId].position_x, orderNodes[msg.edges[i].startNodeId].position_y, orderNodes[msg.edges[i].startNodeId].theta));              
-            }
-            // if endNode of this edge and end element of posesOnEdge are the different point
-            if(orderNodes[msg.edges[i].endNodeId].position_x!=posesOnEdge.back().getX()||
-              orderNodes[msg.edges[i].endNodeId].position_y!=posesOnEdge.back().getY())
-            {
-              posesOnEdge.insert(posesOnEdge.end(), 
-              Pose(orderNodes[msg.edges[i].endNodeId].position_x, orderNodes[msg.edges[i].endNodeId].position_y, orderNodes[msg.edges[i].endNodeId].theta));          
-            }
-            // DeltaAngleStart <= 50 degree and DeltaAngleEnd <= 50 degree
-            if(computeDeltaAngleStartNode(orderNodes[msg.edges[i].startNodeId].theta, posesOnEdge.front(), posesOnEdge[1]) <= 0.872664626 &&
-              computeDeltaAngleEndNode(orderNodes[msg.edges[i].endNodeId].theta, posesOnEdge.back(), posesOnEdge[posesOnEdge.size()-2]) <= 0.872664626)
-            {
-              setYawAllPosesOnEdge(posesOnEdge, false);
-              posesOnEdge.front().setYaw(orderNodes[msg.edges[i].startNodeId].theta); // set yaw angle of the start pose to startNode theta
-              posesOnEdge.back().setYaw(orderNodes[msg.edges[i].endNodeId].theta); // set yaw angle of the end pose to endNode theta
-            }
-            // DeltaAngleStart >= 130 degree and DeltaAngleEnd >= 130 degree
-            else if(computeDeltaAngleStartNode(orderNodes[msg.edges[i].startNodeId].theta, posesOnEdge.front(), posesOnEdge[1]) >= 2.2689280276 &&
-                    computeDeltaAngleEndNode(orderNodes[msg.edges[i].endNodeId].theta, posesOnEdge.back(), posesOnEdge[posesOnEdge.size()-2]) >= 2.2689280276)
-            {
-              setYawAllPosesOnEdge(posesOnEdge, true);
-              posesOnEdge.front().setYaw(orderNodes[msg.edges[i].startNodeId].theta); // set yaw angle of the start pose to startNode theta
-              posesOnEdge.back().setYaw(orderNodes[msg.edges[i].endNodeId].theta); // set yaw angle of the end pose to endNode theta
-            }
-            if(!posesOnPathWay.empty())  // posesOnPathWay has datas 
-            {
-              if(posesOnEdge.front().getX()==posesOnPathWay.back().getX()&&
-                  posesOnEdge.front().getY()==posesOnPathWay.back().getY())
-              {
-                if(computeDeltaAngleStartNode(posesOnPathWay.back().getYaw(), posesOnEdge.front().getYaw(), posesOnEdge.front()) <= 0.872664626) // <= 50 degree
-                {
-                    // if yaw angle of the end pose in posesOnPathWay is default, set it to yaw angle of start pose in posesOnEdge
-                    posesOnPathWay.back().setYaw(posesOnEdge.front().getYaw());
-                    posesOnPathWay.insert(posesOnPathWay.end(), posesOnEdge.begin()+1, posesOnEdge.end());                
-                }
-                else
-                {
-                  ROS_WARN("Trajectory of Edge: %s, startNode: %s, endNode: %s is not good", 
-                  msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str(),  msg.edges[i].endNodeId.c_str());
-                  status = 3;
-                  message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
-                  ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-                  return false;
-                  break;                  
-                }
-              }
-              else
-              {
-                ROS_WARN("Trajectory of Edge: %s. startNode: %s has posision invalid", 
-                msg.edges[i].edgeId.c_str(), msg.edges[i].startNodeId.c_str());
-                status = 3;
-                message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
-                ", endNode: " + msg.edges[i].endNodeId.c_str() + " is not good";
-                return false;
-                break;                
-              }
-            }
-            else // posesOnPathWay is empty
-            {
-              posesOnPathWay.insert(posesOnPathWay.end(), posesOnEdge.begin(), posesOnEdge.end());
-            }
-          }
-        }
-        else{
-          ROS_WARN("Trajectory of Edge: %s, startNodeId: %s, endNodeId: %s is invalid", msg.edges[i].edgeId.c_str(), 
-          msg.edges[i].startNodeId.c_str(), msg.edges[i].endNodeId.c_str());
-          status = 2;
-          message = "Trajectory of Edge: " + msg.edges[i].edgeId + ", startNode: " + msg.edges[i].startNodeId.c_str() +                   
-          ", endNode: " + msg.edges[i].endNodeId.c_str() + " is invalid NURBS-curve";
-          return false;
-          break;          
+          status = 1;
+          message = "[custom_planner] There's a sharp turn along the guide path: at index " + std::to_string(i+1);
+          posesOnPathWay.clear();
+          break;
         }
       }
-      else
+      if(!posesOnPathWay.empty())
       {
-        ROS_WARN("Edge: %s not found startNodeId: %s or endNodeId: %s", msg.edges[i].edgeId.c_str(), 
-        msg.edges[i].startNodeId.c_str(), msg.edges[i].endNodeId.c_str());
-        status = 1;
-        message = "Edge: " + msg.edges[i].edgeId + " not found startNodeId: " + msg.edges[i].startNodeId.c_str() +                   
-          " or endNodeId: " + msg.edges[i].endNodeId.c_str();
-        return false;
-        break;        
+        double yaw_t3 = getYaw(guide_path.poses.back().pose.orientation.x,
+                              guide_path.poses.back().pose.orientation.y,
+                              guide_path.poses.back().pose.orientation.z,
+                              guide_path.poses.back().pose.orientation.w);
+        posesOnPathWay.emplace_back(Pose(guide_path.poses.back().pose.position.x, guide_path.poses.back().pose.position.y, yaw_t3));
+        status = 0;
+        message = "[custom_planner] Got guide path: " + std::to_string((int)guide_path.poses.size()) + " poses";
       }
-      ROS_INFO("Finish to compute at Edge: %s", msg.edges[i].edgeId.c_str());
     }
-    status = 0;
-    message = "Success to make plan: StartNode: " + msg.edges[0].startNodeId + ", EndNode: " + msg.edges[msg.edges.size()-1].endNodeId;
     return true;
   }
 
@@ -2627,6 +2239,7 @@ namespace custom_planner
 
   void CustomPlanner::test_print_plan_result()
   {
+    ROS_WARN("[custom_planne] posesOnPathWay:");
     for (unsigned int i = 0; i < posesOnPathWay.size(); i++)
     {
       if(i==0) std::cerr<<"{ ";
@@ -2637,7 +2250,6 @@ namespace custom_planner
         std::cerr<<"{"<<posesOnPathWay[i].getX()<<", "<<posesOnPathWay[i].getY()<<", "<<posesOnPathWay[i].getYaw()<<"} "<<"}"<<std::endl;
       }
     }
-    ROS_WARN("done print");
   }
 
 };

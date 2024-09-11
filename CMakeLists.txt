@@ -14,7 +14,6 @@ find_package(catkin REQUIRED COMPONENTS
   ${THIS_PACKAGE_ROS_DEPS} 
   geometry_msgs
   message_generation
-  vda5050_msgs
   std_msgs
   nav_msgs
   roscpp
@@ -40,9 +39,9 @@ add_message_files(FILES
 add_service_files(
   DIRECTORY srv
   FILES
-  PlanWithOrder.srv
+  PlanWithNavPath.srv
 )
-generate_messages(DEPENDENCIES geometry_msgs nav_msgs vda5050_msgs)
+generate_messages(DEPENDENCIES geometry_msgs nav_msgs)
 
 ##############################################################################
 # Define package
@@ -51,7 +50,7 @@ generate_messages(DEPENDENCIES geometry_msgs nav_msgs vda5050_msgs)
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ${PROJECT_NAME}
-  CATKIN_DEPENDS ${THIS_PACKAGE_ROS_DEPS} message_runtime vda5050_msgs nav_msgs std_msgs geometry_msgs roscpp
+  CATKIN_DEPENDS ${THIS_PACKAGE_ROS_DEPS} message_runtime nav_msgs std_msgs geometry_msgs roscpp
   # DEPENDS SBPL
 )
 
