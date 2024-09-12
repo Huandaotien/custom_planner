@@ -34,7 +34,6 @@ using namespace std;
 #include <custom_planner/pathway.h>
 #include "custom_planner/Curve_common.h"
 #include "custom_planner/conversion.h"
-#include "custom_planner/PlanWithOrder.h"
 #include "custom_planner/PlanWithNavPath.h"
 
 #include <geometry_msgs/PoseArray.h>
