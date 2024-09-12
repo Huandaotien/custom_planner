@@ -186,7 +186,6 @@ private:
   Pose start_on_path;  
   std::map<string, OrderNode> orderNodes;  
 
-  vda5050_msgs::Order order_msg_;
   uint16_t start_on_path_index;
   bool initialized_;
 
