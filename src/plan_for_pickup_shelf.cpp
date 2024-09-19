@@ -10,6 +10,7 @@
 #include <tf2_ros/buffer.h>
 
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/Pose2D.h>
 
 using namespace std;
 
@@ -49,18 +50,18 @@ bool isThetaValid(double theta)
     return result;
 }
 
-double computeDeltaAngleStartOfPlan(double theta, geometry_msgs::Pose& startPose, geometry_msgs::Pose& next_Pose)
+double computeDeltaAngleStartOfPlan(double theta, geometry_msgs::Pose2D& startPose, geometry_msgs::Pose2D& next_Pose)
 {
     double delta_angle = 0;
     if(isThetaValid(theta))
     {
-      double xAB = next_Pose.position.x - startPose.position.x;
-      double yAB = next_Pose.position.y - startPose.position.y;
+      double xAB = next_Pose.x - startPose.x;
+      double yAB = next_Pose.y - startPose.y;
       double d = sqrt(xAB*xAB + yAB*yAB);
-      double xC = startPose.position.x + d*cos(theta);
-      double yC = startPose.position.y + d*sin(theta);
-      double xAC = xC-startPose.position.x;
-      double yAC = yC-startPose.position.y;
+      double xC = startPose.x + d*cos(theta);
+      double yC = startPose.y + d*sin(theta);
+      double xAC = xC-startPose.x;
+      double yAC = yC-startPose.y;
       double dAB = sqrt(xAB*xAB + yAB*yAB);
       double cos_a = (xAB*xAC + yAB*yAC)/(dAB*d);
       if(cos_a>1) cos_a = 1;
@@ -74,18 +75,18 @@ double computeDeltaAngleStartOfPlan(double theta, geometry_msgs::Pose& startPose
     return delta_angle;    
 }
 
-double computeDeltaAngleEndOfPlan(double theta, geometry_msgs::Pose& endPose, geometry_msgs::Pose& prev_Pose)
+double computeDeltaAngleEndOfPlan(double theta, geometry_msgs::Pose2D& endPose, geometry_msgs::Pose2D& prev_Pose)
 {
     double delta_angle = 0;
     if(isThetaValid(theta))
     {
-        double xAB =endPose.position.x-prev_Pose.position.x;
-        double yAB = endPose.position.y-prev_Pose.position.y;
+        double xAB =endPose.x-prev_Pose.x;
+        double yAB = endPose.y-prev_Pose.y;
         double d = sqrt(xAB*xAB + yAB*yAB);
-        double xC =endPose.position.x + d*cos(theta);
-        double yC = endPose.position.y + d*sin(theta);
-        double xBC = xC-endPose.position.x;
-        double yBC = yC-endPose.position.y;
+        double xC =endPose.x + d*cos(theta);
+        double yC = endPose.y + d*sin(theta);
+        double xBC = xC-endPose.x;
+        double yBC = yC-endPose.y;
         double dAB = sqrt(xAB*xAB + yAB*yAB);
         double cos_a = (xAB*xBC + yAB*yBC)/(dAB*d);
         if(cos_a>1) cos_a = 1;
@@ -99,10 +100,10 @@ double computeDeltaAngleEndOfPlan(double theta, geometry_msgs::Pose& endPose, ge
     return delta_angle;
 }
 
-geometry_msgs::PoseStamped findPerpendicularIntersection(geometry_msgs::PoseStamped& A, geometry_msgs::PoseStamped& B, geometry_msgs::PoseStamped& C) {
-    double x1 = B.pose.position.x, y1 = B.pose.position.y;
-    double x2 = C.pose.position.x, y2 = C.pose.position.y;
-    double x3 = A.pose.position.x, y3 = A.pose.position.y;
+geometry_msgs::Pose2D findPerpendicularIntersection(geometry_msgs::Pose2D& A, geometry_msgs::Pose2D& B, geometry_msgs::Pose2D& C) {
+    double x1 = B.x, y1 = B.y;
+    double x2 = C.x, y2 = C.y;
+    double x3 = A.x, y3 = A.y;
 
     // Kiểm tra nếu điểm A trùng với B hoặc C
     double tolerance = 1e-3; // Sai số chấp nhận được cho kiểm tra dấu phẩy động
@@ -133,7 +134,7 @@ geometry_msgs::PoseStamped findPerpendicularIntersection(geometry_msgs::PoseStam
 
     double determinant = a1 * b2 - a2 * b1;
 
-    geometry_msgs::PoseStamped result;
+    geometry_msgs::Pose2D result;
 
     if (determinant == 0) {
         // Hai đường thẳng song song hoặc trùng nhau, điều này không xảy ra với đường vuông góc
@@ -143,22 +144,20 @@ geometry_msgs::PoseStamped findPerpendicularIntersection(geometry_msgs::PoseStam
         double y = (a1 * c2 - a2 * c1) / determinant;
 
         // Gán kết quả vào result
-        result.pose.position.x = x;
-        result.pose.position.y = y;
-        result.pose.position.z = A.pose.position.z; // Có thể giữ nguyên giá trị z của A
+        result.x = x;
+        result.y = y;
 
-        result.pose.orientation = A.pose.orientation; // Giữ nguyên orientation của A
-        result.header = A.header; // Gán lại header từ A
+        result.theta = A.theta; // Giữ nguyên theta của A
         
         return result;
     }
 }
 
 // Hàm chia đoạn thẳng AB thành các đoạn có độ dài d
-std::vector<geometry_msgs::PoseStamped> divideSegment(geometry_msgs::PoseStamped& A, geometry_msgs::PoseStamped& B, double d) {
-    std::vector<geometry_msgs::PoseStamped> Poses;
-    double xAB = B.pose.position.x - A.pose.position.x;
-    double yAB = B.pose.position.y - A.pose.position.y;
+std::vector<geometry_msgs::Pose2D> divideSegment(geometry_msgs::Pose2D& A, geometry_msgs::Pose2D& B, double d) {
+    std::vector<geometry_msgs::Pose2D> Poses;
+    double xAB = B.x - A.x;
+    double yAB = B.y - A.y;
     double length = sqrt(xAB*xAB + yAB*yAB);
     if(length > d)
     {
@@ -169,45 +168,41 @@ std::vector<geometry_msgs::PoseStamped> divideSegment(geometry_msgs::PoseStamped
       // Tính toán tọa độ của các điểm trên đoạn AB
       double ratio = d / length;
       for (int i = 1; i <= segments; ++i) {
-          geometry_msgs::PoseStamped p;
-          double p_x = A.pose.position.x + (B.pose.position.x - A.pose.position.x) * ratio * i;
-          double p_y = A.pose.position.y + (B.pose.position.y - A.pose.position.y) * ratio * i;
-          p.pose.position.x = p_x;
-          p.pose.position.y = p_y;
+          geometry_msgs::Pose2D p;
+          double p_x = A.x + (B.x - A.x) * ratio * i;
+          double p_y = A.y + (B.y - A.y) * ratio * i;
+          p.x = p_x;
+          p.y = p_y;
           Poses.push_back(p);
       }
       
-      if(!Poses.empty()&&(Poses.back().pose.position.x!=B.pose.position.x || Poses.back().pose.position.y!=B.pose.position.y))
+      if(!Poses.empty()&&(Poses.back().x!=B.x || Poses.back().y!=B.y))
       {
           Poses.push_back(B); // Thêm điểm B vào vector sau khi chia
       }    
 
       // Tính góc cho từng pose trên đoạn AB
-      if(//computeDeltaAngleStartOfPlan(getYaw(A.pose.orientation.x, A.pose.orientation.y, A.pose.orientation.z, A.pose.orientation.w),
-        //Poses.front().pose, Poses[1].pose) <= 0.872664626 &&  
-        computeDeltaAngleEndOfPlan(getYaw(B.pose.orientation.x, B.pose.orientation.y, B.pose.orientation.z, B.pose.orientation.w),
-        Poses.back().pose, Poses[Poses.size() - 2].pose) <= 1.3962634016) // <= 80 degree
+      if(computeDeltaAngleEndOfPlan(B.theta,
+         Poses.back(), Poses[Poses.size() - 2]) <= 1.3962634016) // <= 80 degree
       {
         for(int i = 0; i<((int)Poses.size()-1); i++)
         {
-            double theta = calculateAngle(Poses[i].pose.position.x, Poses[i].pose.position.y, 
-                                            Poses[i+1].pose.position.x, Poses[i+1].pose.position.y);
-            Poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta); 
+            double theta = calculateAngle(Poses[i].x, Poses[i].y, 
+                                            Poses[i+1].x, Poses[i+1].y);
+            Poses[i].theta = (theta); 
         }
-        Poses.back().pose.orientation = B.pose.orientation;
+        Poses.back().theta = B.theta;
       }
-      else if(//computeDeltaAngleStartOfPlan(getYaw(A.pose.orientation.x, A.pose.orientation.y, A.pose.orientation.z, A.pose.orientation.w),
-              //Poses.front().pose, Poses[1].pose) >= 2.2689280276 &&
-              computeDeltaAngleEndOfPlan(getYaw(B.pose.orientation.x, B.pose.orientation.y, B.pose.orientation.z, B.pose.orientation.w),
-              Poses.back().pose, Poses[Poses.size() - 2].pose) >= 1.7453292526) // >= 100 degree
+      else if(computeDeltaAngleEndOfPlan(B.theta,
+              Poses.back(), Poses[Poses.size() - 2]) >= 1.7453292526) // >= 100 degree
       {       
         for(int i = (int)Poses.size() -1; i>0; i--)
         {
-            double theta = calculateAngle(Poses[i].pose.position.x, Poses[i].pose.position.y, 
-                                            Poses[i-1].pose.position.x, Poses[i-1].pose.position.y);
-            Poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);     
+            double theta = calculateAngle(Poses[i].x, Poses[i].y, 
+                                            Poses[i-1].x, Poses[i-1].y);
+            Poses[i].theta = (theta);     
         }
-        Poses.front().pose.orientation = A.pose.orientation;
+        Poses.front().theta = A.theta;
       }
     }
     else
@@ -223,28 +218,28 @@ std::vector<geometry_msgs::PoseStamped> divideSegment(geometry_msgs::PoseStamped
     // pose_B: điểm đích trên cung tròn
     // pose_C: tâm của cung tròn AB (kết quả)
 
-bool findCenterOfCurve(geometry_msgs::PoseStamped& pose_A, geometry_msgs::PoseStamped& pose_B, geometry_msgs::PoseStamped& pose_C)
+bool findCenterOfCurve(geometry_msgs::Pose2D& pose_A, geometry_msgs::Pose2D& pose_B, geometry_msgs::Pose2D& pose_C)
 {
   // nếu hướng của vector AB và hướng của pose_B tạo với nhau một góc ~0 độ hoặc ~180 độ -> điểm C sẽ gần xấp xỉ với trung điểm của đoạn thẳng AB.
-  if((computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-      pose_B.pose, pose_A.pose) >= 3.13 && 
-      computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-      pose_B.pose, pose_A.pose) <= M_PI) ||
-      (computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-      pose_B.pose, pose_A.pose) <= 0.1745 && 
-      computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-      pose_B.pose, pose_A.pose) >= 0))
+  if((computeDeltaAngleEndOfPlan(pose_B.theta,
+      pose_B, pose_A) >= 3.13 && 
+      computeDeltaAngleEndOfPlan(pose_B.theta,
+      pose_B, pose_A) <= M_PI) ||
+      (computeDeltaAngleEndOfPlan(pose_B.theta,
+      pose_B, pose_A) <= 0.1745 && 
+      computeDeltaAngleEndOfPlan(pose_B.theta,
+      pose_B, pose_A) >= 0))
   {
-    pose_C.pose.position.x = (pose_A.pose.position.x + pose_B.pose.position.x)/2;
-    pose_C.pose.position.y = (pose_A.pose.position.y + pose_B.pose.position.y)/2;
+    pose_C.x = (pose_A.x + pose_B.x)/2;
+    pose_C.y = (pose_A.y + pose_B.y)/2;
   }
   else
   {
-    double x_R = pose_A.pose.position.x;
-    double y_R = pose_A.pose.position.y;
-    double x_G = pose_B.pose.position.x;
-    double y_G = pose_B.pose.position.y;
-    double phi_vG = getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w);
+    double x_R = pose_A.x;
+    double y_R = pose_A.y;
+    double x_G = pose_B.x;
+    double y_G = pose_B.y;
+    double phi_vG = pose_B.theta;
     double x_H = (x_R+x_G)/2;
     double y_H = (y_R+y_G)/2;
     double m_vG = tan(phi_vG);
@@ -254,8 +249,8 @@ bool findCenterOfCurve(geometry_msgs::PoseStamped& pose_A, geometry_msgs::PoseSt
     double b_RG = y_R-m_RG*x_R;
     double m_H_n_RG = -1/m_RG;
     double b_H_n_RG = y_H-m_H_n_RG*x_H;
-    pose_C.pose.position.x = (b_H_n_RG-b_G_n_vG)/(m_G_n_vG-m_H_n_RG);
-    pose_C.pose.position.y = (b_H_n_RG*m_G_n_vG-b_G_n_vG*m_H_n_RG)/(m_G_n_vG-m_H_n_RG);
+    pose_C.x = (b_H_n_RG-b_G_n_vG)/(m_G_n_vG-m_H_n_RG);
+    pose_C.y = (b_H_n_RG*m_G_n_vG-b_G_n_vG*m_H_n_RG)/(m_G_n_vG-m_H_n_RG);
   }
   return true;
 }
@@ -267,32 +262,29 @@ bool findCenterOfCurve(geometry_msgs::PoseStamped& pose_A, geometry_msgs::PoseSt
     // d_instersection: khoảng cách từ điểm intersection đến điểm offset
     // d_offset_min: khoảng cách từ shelf pose đến điểm offset pose tối thiểu để robot có thể vào lấy hàng
     // result_plan: vector chứa plan kết quả
-bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose, 
-    geometry_msgs::PoseStamped& shelf_pose_on_map, double d_intersection, 
-    double d_offset_min, bool robot_move_forward, std::vector<geometry_msgs::PoseStamped>& result_plan)
+bool makePlanPickupShelf(geometry_msgs::Pose2D& current_pose, 
+    geometry_msgs::Pose2D& shelf_pose_on_map, double d_intersection, 
+    double d_offset_min, bool robot_move_forward, std::vector<geometry_msgs::Pose2D>& result_plan)
 {
     bool result = false;
-    std::vector<geometry_msgs::PoseStamped> plan1;
-    std::vector<geometry_msgs::PoseStamped> plan2;
+    std::vector<geometry_msgs::Pose2D> plan1;
+    std::vector<geometry_msgs::Pose2D> plan2;
     if(robot_move_forward) // robot move forward
     {
-      double shelf_pose_yaw = getYaw(shelf_pose_on_map.pose.orientation.x,
-                                      shelf_pose_on_map.pose.orientation.y,
-                                      shelf_pose_on_map.pose.orientation.z,
-                                      shelf_pose_on_map.pose.orientation.w);
+      double shelf_pose_yaw = shelf_pose_on_map.theta;
       modifyYaw(shelf_pose_yaw);
       double goal_pose_yaw = shelf_pose_yaw + M_PI;
       modifyYaw(goal_pose_yaw);
-      geometry_msgs::PoseStamped goal_pose;
-      goal_pose.pose.position = shelf_pose_on_map.pose.position;
-      goal_pose.pose.orientation = tf::createQuaternionMsgFromYaw(goal_pose_yaw);
-      geometry_msgs::PoseStamped pose_offset_min;                                            
-      pose_offset_min.pose.position.x = shelf_pose_on_map.pose.position.x + d_offset_min*cos(shelf_pose_yaw);
-      pose_offset_min.pose.position.y = shelf_pose_on_map.pose.position.y + d_offset_min*sin(shelf_pose_yaw);
-      pose_offset_min.pose.orientation = goal_pose.pose.orientation;
-      geometry_msgs::PoseStamped pose_intersection = findPerpendicularIntersection(current_pose, shelf_pose_on_map, pose_offset_min);
-      double d_shelfpose_to_intersection = std::sqrt(std::pow(pose_intersection.pose.position.x - shelf_pose_on_map.pose.position.x, 2) + 
-        std::pow(pose_intersection.pose.position.y - shelf_pose_on_map.pose.position.y, 2));
+      geometry_msgs::Pose2D goal_pose;
+      goal_pose = shelf_pose_on_map;
+      goal_pose.theta = (goal_pose_yaw);
+      geometry_msgs::Pose2D pose_offset_min;                                            
+      pose_offset_min.x = shelf_pose_on_map.x + d_offset_min*cos(shelf_pose_yaw);
+      pose_offset_min.y = shelf_pose_on_map.y + d_offset_min*sin(shelf_pose_yaw);
+      pose_offset_min.theta = goal_pose.theta;
+      geometry_msgs::Pose2D pose_intersection = findPerpendicularIntersection(current_pose, shelf_pose_on_map, pose_offset_min);
+      double d_shelfpose_to_intersection = std::sqrt(std::pow(pose_intersection.x - shelf_pose_on_map.x, 2) + 
+        std::pow(pose_intersection.y - shelf_pose_on_map.y, 2));
       double delta_d1 = d_shelfpose_to_intersection - d_offset_min;
       if(delta_d1 <= 0.1)
       {
@@ -309,19 +301,19 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
       }
       else
       {
-        geometry_msgs::PoseStamped pose_B;
-        pose_B.pose.position.x = pose_intersection.pose.position.x + d_intersection*cos(goal_pose_yaw);
-        pose_B.pose.position.y = pose_intersection.pose.position.y + d_intersection*sin(goal_pose_yaw);
-        pose_B.pose.orientation = goal_pose.pose.orientation;
+        geometry_msgs::Pose2D pose_B;
+        pose_B.x = pose_intersection.x + d_intersection*cos(goal_pose_yaw);
+        pose_B.y = pose_intersection.y + d_intersection*sin(goal_pose_yaw);
+        pose_B.theta = goal_pose.theta;
         if(d_intersection <= 0.1)
         {
-          double pose_intersection_yaw = calculateAngle(current_pose.pose.position.x, current_pose.pose.position.y,
-            pose_intersection.pose.position.x, pose_intersection.pose.position.y);
-          pose_intersection.pose.orientation = tf::createQuaternionMsgFromYaw(pose_intersection_yaw);
+          double pose_intersection_yaw = calculateAngle(current_pose.x, current_pose.y,
+            pose_intersection.x, pose_intersection.y);
+          pose_intersection.theta = (pose_intersection_yaw);
           plan1.clear();
           plan2.clear();
           plan1 = divideSegment(current_pose, pose_intersection, 0.02);    
-          pose_intersection.pose.orientation = tf::createQuaternionMsgFromYaw(goal_pose_yaw); 
+          pose_intersection.theta = (goal_pose_yaw); 
           plan2 = divideSegment(pose_intersection, goal_pose, 0.02);     
           result_plan.assign(plan1.begin(), plan1.end());
           result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());   
@@ -335,21 +327,21 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
         }
         else
         {
-          double d_shelfpose_to_intersection = std::sqrt(std::pow(pose_B.pose.position.x - shelf_pose_on_map.pose.position.x, 2) + 
-            std::pow(pose_B.pose.position.y - shelf_pose_on_map.pose.position.y, 2));
+          double d_shelfpose_to_intersection = std::sqrt(std::pow(pose_B.x - shelf_pose_on_map.x, 2) + 
+            std::pow(pose_B.y - shelf_pose_on_map.y, 2));
           double delta2 = d_shelfpose_to_intersection - d_offset_min;
           if(delta2 > 0.1 &&
-            computeDeltaAngleStartOfPlan(shelf_pose_yaw, shelf_pose_on_map.pose, pose_B.pose) <= 0.5235987756) // <= 30 degree
+            computeDeltaAngleStartOfPlan(shelf_pose_yaw, shelf_pose_on_map, pose_B) <= 0.5235987756) // <= 30 degree
           {
             // nếu hướng của vector AB và hướng của pose_B tạo với nhau một góc ~0 độ hoặc ~180 độ -> cung tròn AB sẽ gần như là một đọan thẳng
-            if((computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                pose_B.pose, current_pose.pose) >= 3.13 && 
-                computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                pose_B.pose, current_pose.pose) <= M_PI) ||
-                (computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                pose_B.pose, current_pose.pose) <= 0.1745 && 
-                computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                pose_B.pose, current_pose.pose) >= 0))
+            if((computeDeltaAngleEndOfPlan(pose_B.theta,
+                pose_B, current_pose) >= 3.13 && 
+                computeDeltaAngleEndOfPlan(pose_B.theta,
+                pose_B, current_pose) <= M_PI) ||
+                (computeDeltaAngleEndOfPlan(pose_B.theta,
+                pose_B, current_pose) <= 0.1745 && 
+                computeDeltaAngleEndOfPlan(pose_B.theta,
+                pose_B, current_pose) >= 0))
             {
               plan1.clear();
               plan2.clear();
@@ -368,14 +360,14 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
             else
             {
               // Tính toán đoạn đường cong AB
-              geometry_msgs::PoseStamped pose_C;
-              geometry_msgs::PoseStamped pose_A = current_pose;
+              geometry_msgs::Pose2D pose_C;
+              geometry_msgs::Pose2D pose_A = current_pose;
               if(findCenterOfCurve(pose_A, pose_B, pose_C))
               {
-                double xCA = pose_A.pose.position.x - pose_C.pose.position.x;
-                double yCA = pose_A.pose.position.y - pose_C.pose.position.y;
-                double xCB = pose_B.pose.position.x - pose_C.pose.position.x;
-                double yCB = pose_B.pose.position.y - pose_C.pose.position.y;
+                double xCA = pose_A.x - pose_C.x;
+                double yCA = pose_A.y - pose_C.y;
+                double xCB = pose_B.x - pose_C.x;
+                double yCB = pose_B.y - pose_C.y;
                 double rCA = sqrt(xCA * xCA + yCA * yCA);
                 double rCB = sqrt(xCB * xCB + yCB * yCB);
                 if (abs(rCA - rCB) > 0.008)
@@ -397,10 +389,10 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
                 // check thử xem chiều góc quét từ A -> B thì angleCA + delta_angle hay angleCA - delta_angle
                 bool is_increase_angle = false;
                 double check_angle = angleCA + 50 * angle_interval * angleACB;
-                double xA1 = pose_C.pose.position.x + rCA * cos(check_angle);
-                double yA1 = pose_C.pose.position.y + rCA * sin(check_angle);
-                double xCA1 = xA1 - pose_C.pose.position.x;
-                double yCA1 = yA1 - pose_C.pose.position.y;
+                double xA1 = pose_C.x + rCA * cos(check_angle);
+                double yA1 = pose_C.y + rCA * sin(check_angle);
+                double xCA1 = xA1 - pose_C.x;
+                double yCA1 = yA1 - pose_C.y;
                 double cos_A1CB = (xCA1 * xCB + yCA1 * yCB) / (rCA * rCB);
                 if (cos_A1CB > 1)
                   cos_A1CB = 1;
@@ -427,12 +419,11 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
                   for (double i = 0; i <= 1; i += angle_interval)
                   {
                     double angle_tmp = angleCA + angleACB * i;
-                    double xP = pose_C.pose.position.x + rCA * cos(angle_tmp);
-                    double yP = pose_C.pose.position.y + rCA * sin(angle_tmp);
-                    geometry_msgs::PoseStamped p;
-                    p.pose.position.x = xP;
-                    p.pose.position.y = yP;
-                    p.pose.position.z = 0;
+                    double xP = pose_C.x + rCA * cos(angle_tmp);
+                    double yP = pose_C.y + rCA * sin(angle_tmp);
+                    geometry_msgs::Pose2D p;
+                    p.x = xP;
+                    p.y = yP;
                     plan1.push_back(p);
                   }
                 }
@@ -441,38 +432,37 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
                   for (double i = 0; i <= 1; i += angle_interval)
                   {
                     double angle_tmp = angleCA - angleACB * i;
-                    double xP = pose_C.pose.position.x + rCA * cos(angle_tmp);
-                    double yP = pose_C.pose.position.y + rCA * sin(angle_tmp);
-                    geometry_msgs::PoseStamped p;
-                    p.pose.position.x = xP;
-                    p.pose.position.y = yP;
-                    p.pose.position.z = 0;
+                    double xP = pose_C.x + rCA * cos(angle_tmp);
+                    double yP = pose_C.y + rCA * sin(angle_tmp);
+                    geometry_msgs::Pose2D p;
+                    p.x = xP;
+                    p.y = yP;
                     plan1.push_back(p);
                   }
                 }
                 if (!plan1.empty() && plan1.size() > 2)
                 {
-                  if (computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                                                  plan1.back().pose, plan1[plan1.size() - 2].pose) <= 1.3962634016) // <= 80 degree
+                  if (computeDeltaAngleEndOfPlan(pose_B.theta,
+                                                  plan1.back(), plan1[plan1.size() - 2]) <= 1.3962634016) // <= 80 degree
                   {
                     for (int i = 0; i < ((int)plan1.size() - 1); i++)
                     {
-                      double theta = calculateAngle(plan1[i].pose.position.x, plan1[i].pose.position.y,
-                                                    plan1[i + 1].pose.position.x, plan1[i + 1].pose.position.y);
-                      plan1[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);
+                      double theta = calculateAngle(plan1[i].x, plan1[i].y,
+                                                    plan1[i + 1].x, plan1[i + 1].y);
+                      plan1[i].theta = (theta);
                     }
-                    plan1.back().pose.orientation = pose_B.pose.orientation;                    
+                    plan1.back().theta = pose_B.theta;                    
                   }
-                  else if(computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                                            plan1.back().pose, plan1[plan1.size() - 2].pose) >= 1.745329252) // >= 100 degree
+                  else if(computeDeltaAngleEndOfPlan(pose_B.theta,
+                                            plan1.back(), plan1[plan1.size() - 2]) >= 1.745329252) // >= 100 degree
                   {
                     for (int i = (int)plan1.size() - 1; i > 0; i--)
                     {
-                      double theta = calculateAngle(plan1[i].pose.position.x, plan1[i].pose.position.y,
-                                                    plan1[i - 1].pose.position.x, plan1[i - 1].pose.position.y);
-                      plan1[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);
+                      double theta = calculateAngle(plan1[i].x, plan1[i].y,
+                                                    plan1[i - 1].x, plan1[i - 1].y);
+                      plan1[i].theta = (theta);
                     }
-                    plan1.front().pose.orientation = plan1[1].pose.orientation;
+                    plan1.front().theta = plan1[1].theta;
                   }
                   else
                   {
@@ -515,16 +505,16 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
           else
           {
             pose_B = pose_offset_min;
-            pose_B.pose.orientation = goal_pose.pose.orientation;
+            pose_B.theta = goal_pose.theta;
             // nếu hướng của vector AB và hướng của pose_B tạo với nhau một góc ~0 độ hoặc ~180 độ -> cung tròn AB sẽ gần như là một đọan thẳng
-            if((computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                pose_B.pose, current_pose.pose) >= 3.13 && 
-                computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                pose_B.pose, current_pose.pose) <= M_PI) ||
-                (computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                pose_B.pose, current_pose.pose) <= 0.1745 && 
-                computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                pose_B.pose, current_pose.pose) >= 0))
+            if((computeDeltaAngleEndOfPlan(pose_B.theta,
+                pose_B, current_pose) >= 3.13 && 
+                computeDeltaAngleEndOfPlan(pose_B.theta,
+                pose_B, current_pose) <= M_PI) ||
+                (computeDeltaAngleEndOfPlan(pose_B.theta,
+                pose_B, current_pose) <= 0.1745 && 
+                computeDeltaAngleEndOfPlan(pose_B.theta,
+                pose_B, current_pose) >= 0))
             {
               plan1 = divideSegment(current_pose, pose_B, 0.02);
               plan2 = divideSegment(pose_B, goal_pose, 0.02);
@@ -541,14 +531,14 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
             else
             {
               // Tính toán đoạn đường cong AB
-              geometry_msgs::PoseStamped pose_C;
-              geometry_msgs::PoseStamped pose_A = current_pose;
+              geometry_msgs::Pose2D pose_C;
+              geometry_msgs::Pose2D pose_A = current_pose;
               if(findCenterOfCurve(pose_A, pose_B, pose_C))
               {
-                double xCA = pose_A.pose.position.x - pose_C.pose.position.x;
-                double yCA = pose_A.pose.position.y - pose_C.pose.position.y;
-                double xCB = pose_B.pose.position.x - pose_C.pose.position.x;
-                double yCB = pose_B.pose.position.y - pose_C.pose.position.y;
+                double xCA = pose_A.x - pose_C.x;
+                double yCA = pose_A.y - pose_C.y;
+                double xCB = pose_B.x - pose_C.x;
+                double yCB = pose_B.y - pose_C.y;
                 double rCA = sqrt(xCA * xCA + yCA * yCA);
                 double rCB = sqrt(xCB * xCB + yCB * yCB);
                 if (abs(rCA - rCB) > 0.008)
@@ -570,10 +560,10 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
                 // check thử xem chiều góc quét từ A -> B thì angleCA + delta_angle hay angleCA - delta_angle
                 bool is_increase_angle = false;
                 double check_angle = angleCA + 50 * angle_interval * angleACB;
-                double xA1 = pose_C.pose.position.x + rCA * cos(check_angle);
-                double yA1 = pose_C.pose.position.y + rCA * sin(check_angle);
-                double xCA1 = xA1 - pose_C.pose.position.x;
-                double yCA1 = yA1 - pose_C.pose.position.y;
+                double xA1 = pose_C.x + rCA * cos(check_angle);
+                double yA1 = pose_C.y + rCA * sin(check_angle);
+                double xCA1 = xA1 - pose_C.x;
+                double yCA1 = yA1 - pose_C.y;
                 double cos_A1CB = (xCA1 * xCB + yCA1 * yCB) / (rCA * rCB);
                 if (cos_A1CB > 1)
                   cos_A1CB = 1;
@@ -600,12 +590,11 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
                   for (double i = 0; i <= 1; i += angle_interval)
                   {
                     double angle_tmp = angleCA + angleACB * i;
-                    double xP = pose_C.pose.position.x + rCA * cos(angle_tmp);
-                    double yP = pose_C.pose.position.y + rCA * sin(angle_tmp);
-                    geometry_msgs::PoseStamped p;
-                    p.pose.position.x = xP;
-                    p.pose.position.y = yP;
-                    p.pose.position.z = 0;
+                    double xP = pose_C.x + rCA * cos(angle_tmp);
+                    double yP = pose_C.y + rCA * sin(angle_tmp);
+                    geometry_msgs::Pose2D p;
+                    p.x = xP;
+                    p.y = yP;
                     plan1.push_back(p);
                   }
                 }
@@ -614,38 +603,37 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
                   for (double i = 0; i <= 1; i += angle_interval)
                   {
                     double angle_tmp = angleCA - angleACB * i;
-                    double xP = pose_C.pose.position.x + rCA * cos(angle_tmp);
-                    double yP = pose_C.pose.position.y + rCA * sin(angle_tmp);
-                    geometry_msgs::PoseStamped p;
-                    p.pose.position.x = xP;
-                    p.pose.position.y = yP;
-                    p.pose.position.z = 0;
+                    double xP = pose_C.x + rCA * cos(angle_tmp);
+                    double yP = pose_C.y + rCA * sin(angle_tmp);
+                    geometry_msgs::Pose2D p;
+                    p.x = xP;
+                    p.y = yP;
                     plan1.push_back(p);
                   }
                 }
                 if (!plan1.empty() && plan1.size() > 2)
                 {
-                  if (computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                                                  plan1.back().pose, plan1[plan1.size() - 2].pose) <= 1.3962634016) // <= 80 degree
+                  if (computeDeltaAngleEndOfPlan(pose_B.theta,
+                                                  plan1.back(), plan1[plan1.size() - 2]) <= 1.3962634016) // <= 80 degree
                   {
                     for (int i = 0; i < ((int)plan1.size() - 1); i++)
                     {
-                      double theta = calculateAngle(plan1[i].pose.position.x, plan1[i].pose.position.y,
-                                                    plan1[i + 1].pose.position.x, plan1[i + 1].pose.position.y);
-                      plan1[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);
+                      double theta = calculateAngle(plan1[i].x, plan1[i].y,
+                                                    plan1[i + 1].x, plan1[i + 1].y);
+                      plan1[i].theta = (theta);
                     }
-                    plan1.back().pose.orientation = pose_B.pose.orientation;
+                    plan1.back().theta = pose_B.theta;
                   }
-                  else if(computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                                            plan1.back().pose, plan1[plan1.size() - 2].pose) >= 1.745329252) // >= 100 degree
+                  else if(computeDeltaAngleEndOfPlan(pose_B.theta,
+                                            plan1.back(), plan1[plan1.size() - 2]) >= 1.745329252) // >= 100 degree
                   {
                     for (int i = (int)plan1.size() - 1; i > 0; i--)
                     {
-                      double theta = calculateAngle(plan1[i].pose.position.x, plan1[i].pose.position.y,
-                                                    plan1[i - 1].pose.position.x, plan1[i - 1].pose.position.y);
-                      plan1[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);
+                      double theta = calculateAngle(plan1[i].x, plan1[i].y,
+                                                    plan1[i - 1].x, plan1[i - 1].y);
+                      plan1[i].theta = (theta);
                     }
-                    plan1.front().pose.orientation = plan1[1].pose.orientation;
+                    plan1.front().theta = plan1[1].theta;
                   }
                   else
                   {
@@ -690,23 +678,20 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
     }
     else // robot move backward
     {
-      double shelf_pose_yaw = getYaw(shelf_pose_on_map.pose.orientation.x,
-                                      shelf_pose_on_map.pose.orientation.y,
-                                      shelf_pose_on_map.pose.orientation.z,
-                                      shelf_pose_on_map.pose.orientation.w);
+      double shelf_pose_yaw = shelf_pose_on_map.theta;
       modifyYaw(shelf_pose_yaw);
       double goal_pose_yaw = shelf_pose_yaw;
       modifyYaw(goal_pose_yaw);
-      geometry_msgs::PoseStamped goal_pose;
-      goal_pose.pose.position = shelf_pose_on_map.pose.position;
-      goal_pose.pose.orientation = tf::createQuaternionMsgFromYaw(goal_pose_yaw);
-      geometry_msgs::PoseStamped pose_offset_min;                                            
-      pose_offset_min.pose.position.x = shelf_pose_on_map.pose.position.x + d_offset_min*cos(shelf_pose_yaw);
-      pose_offset_min.pose.position.y = shelf_pose_on_map.pose.position.y + d_offset_min*sin(shelf_pose_yaw);
-      pose_offset_min.pose.orientation = goal_pose.pose.orientation;
-      geometry_msgs::PoseStamped pose_intersection = findPerpendicularIntersection(current_pose, shelf_pose_on_map, pose_offset_min);
-      double d_shelfpose_to_intersection = std::sqrt(std::pow(pose_intersection.pose.position.x - shelf_pose_on_map.pose.position.x, 2) + 
-        std::pow(pose_intersection.pose.position.y - shelf_pose_on_map.pose.position.y, 2));
+      geometry_msgs::Pose2D goal_pose;
+      goal_pose = shelf_pose_on_map;
+      goal_pose.theta = (goal_pose_yaw);
+      geometry_msgs::Pose2D pose_offset_min;                                            
+      pose_offset_min.x = shelf_pose_on_map.x + d_offset_min*cos(shelf_pose_yaw);
+      pose_offset_min.y = shelf_pose_on_map.y + d_offset_min*sin(shelf_pose_yaw);
+      pose_offset_min.theta = goal_pose.theta;
+      geometry_msgs::Pose2D pose_intersection = findPerpendicularIntersection(current_pose, shelf_pose_on_map, pose_offset_min);
+      double d_shelfpose_to_intersection = std::sqrt(std::pow(pose_intersection.x - shelf_pose_on_map.x, 2) + 
+        std::pow(pose_intersection.y - shelf_pose_on_map.y, 2));
       double delta_d1 = d_shelfpose_to_intersection - d_offset_min;
       if(delta_d1 <= 0.1)
       {
@@ -723,19 +708,19 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
       }
       else
       {
-        geometry_msgs::PoseStamped pose_B;
-        pose_B.pose.position.x = pose_intersection.pose.position.x + d_intersection*cos(goal_pose_yaw);
-        pose_B.pose.position.y = pose_intersection.pose.position.y + d_intersection*sin(goal_pose_yaw);
-        pose_B.pose.orientation = goal_pose.pose.orientation;
+        geometry_msgs::Pose2D pose_B;
+        pose_B.x = pose_intersection.x + d_intersection*cos(goal_pose_yaw);
+        pose_B.y = pose_intersection.y + d_intersection*sin(goal_pose_yaw);
+        pose_B.theta = goal_pose.theta;
         if(d_intersection <= 0.1)
         {
-          double pose_intersection_yaw = calculateAngle(pose_intersection.pose.position.x, pose_intersection.pose.position.y,
-            current_pose.pose.position.x, current_pose.pose.position.y);
-          pose_intersection.pose.orientation = tf::createQuaternionMsgFromYaw(pose_intersection_yaw);
+          double pose_intersection_yaw = calculateAngle(pose_intersection.x, pose_intersection.y,
+            current_pose.x, current_pose.y);
+          pose_intersection.theta = (pose_intersection_yaw);
           plan1.clear();
           plan2.clear();
           plan1 = divideSegment(current_pose, pose_intersection, 0.02);   
-          pose_intersection.pose.orientation = tf::createQuaternionMsgFromYaw(goal_pose_yaw);
+          pose_intersection.theta = (goal_pose_yaw);
           plan2 = divideSegment(pose_intersection, goal_pose, 0.02);     
           result_plan.assign(plan1.begin(), plan1.end());
           result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());   
@@ -749,21 +734,21 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
         }
         else
         {
-          double d_shelfpose_to_intersection = std::sqrt(std::pow(pose_B.pose.position.x - shelf_pose_on_map.pose.position.x, 2) + 
-            std::pow(pose_B.pose.position.y - shelf_pose_on_map.pose.position.y, 2));
+          double d_shelfpose_to_intersection = std::sqrt(std::pow(pose_B.x - shelf_pose_on_map.x, 2) + 
+            std::pow(pose_B.y - shelf_pose_on_map.y, 2));
           double delta2 = d_shelfpose_to_intersection - d_offset_min;
           if(delta2 > 0.1 &&
-            computeDeltaAngleStartOfPlan(shelf_pose_yaw, shelf_pose_on_map.pose, pose_B.pose) <= 0.5235987756) // <= 30 degree
+            computeDeltaAngleStartOfPlan(shelf_pose_yaw, shelf_pose_on_map, pose_B) <= 0.5235987756) // <= 30 degree
           {
             // nếu hướng của vector AB và hướng của pose_B tạo với nhau một góc ~0 độ hoặc ~180 độ -> cung tròn AB sẽ gần như là một đọan thẳng
-            if((computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                pose_B.pose, current_pose.pose) >= 3.13 && 
-                computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                pose_B.pose, current_pose.pose) <= M_PI) ||
-                (computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                pose_B.pose, current_pose.pose) <= 0.1745 && 
-                computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                pose_B.pose, current_pose.pose) >= 0))
+            if((computeDeltaAngleEndOfPlan(pose_B.theta,
+                pose_B, current_pose) >= 3.13 && 
+                computeDeltaAngleEndOfPlan(pose_B.theta,
+                pose_B, current_pose) <= M_PI) ||
+                (computeDeltaAngleEndOfPlan(pose_B.theta,
+                pose_B, current_pose) <= 0.1745 && 
+                computeDeltaAngleEndOfPlan(pose_B.theta,
+                pose_B, current_pose) >= 0))
             {
               plan1.clear();
               plan2.clear();
@@ -782,14 +767,14 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
             else
             {
               // Tính toán đoạn đường cong AB
-              geometry_msgs::PoseStamped pose_C;
-              geometry_msgs::PoseStamped pose_A = current_pose;
+              geometry_msgs::Pose2D pose_C;
+              geometry_msgs::Pose2D pose_A = current_pose;
               if(findCenterOfCurve(pose_A, pose_B, pose_C))
               {
-                double xCA = pose_A.pose.position.x - pose_C.pose.position.x;
-                double yCA = pose_A.pose.position.y - pose_C.pose.position.y;
-                double xCB = pose_B.pose.position.x - pose_C.pose.position.x;
-                double yCB = pose_B.pose.position.y - pose_C.pose.position.y;
+                double xCA = pose_A.x - pose_C.x;
+                double yCA = pose_A.y - pose_C.y;
+                double xCB = pose_B.x - pose_C.x;
+                double yCB = pose_B.y - pose_C.y;
                 double rCA = sqrt(xCA * xCA + yCA * yCA);
                 double rCB = sqrt(xCB * xCB + yCB * yCB);
                 if (abs(rCA - rCB) > 0.008)
@@ -811,10 +796,10 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
                 // check thử xem chiều góc quét từ A -> B thì angleCA + delta_angle hay angleCA - delta_angle
                 bool is_increase_angle = false;
                 double check_angle = angleCA + 50 * angle_interval * angleACB;
-                double xA1 = pose_C.pose.position.x + rCA * cos(check_angle);
-                double yA1 = pose_C.pose.position.y + rCA * sin(check_angle);
-                double xCA1 = xA1 - pose_C.pose.position.x;
-                double yCA1 = yA1 - pose_C.pose.position.y;
+                double xA1 = pose_C.x + rCA * cos(check_angle);
+                double yA1 = pose_C.y + rCA * sin(check_angle);
+                double xCA1 = xA1 - pose_C.x;
+                double yCA1 = yA1 - pose_C.y;
                 double cos_A1CB = (xCA1 * xCB + yCA1 * yCB) / (rCA * rCB);
                 if (cos_A1CB > 1)
                   cos_A1CB = 1;
@@ -841,12 +826,11 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
                   for (double i = 0; i <= 1; i += angle_interval)
                   {
                     double angle_tmp = angleCA + angleACB * i;
-                    double xP = pose_C.pose.position.x + rCA * cos(angle_tmp);
-                    double yP = pose_C.pose.position.y + rCA * sin(angle_tmp);
-                    geometry_msgs::PoseStamped p;
-                    p.pose.position.x = xP;
-                    p.pose.position.y = yP;
-                    p.pose.position.z = 0;
+                    double xP = pose_C.x + rCA * cos(angle_tmp);
+                    double yP = pose_C.y + rCA * sin(angle_tmp);
+                    geometry_msgs::Pose2D p;
+                    p.x = xP;
+                    p.y = yP;
                     plan1.push_back(p);
                   }
                 }
@@ -855,38 +839,37 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
                   for (double i = 0; i <= 1; i += angle_interval)
                   {
                     double angle_tmp = angleCA - angleACB * i;
-                    double xP = pose_C.pose.position.x + rCA * cos(angle_tmp);
-                    double yP = pose_C.pose.position.y + rCA * sin(angle_tmp);
-                    geometry_msgs::PoseStamped p;
-                    p.pose.position.x = xP;
-                    p.pose.position.y = yP;
-                    p.pose.position.z = 0;
+                    double xP = pose_C.x + rCA * cos(angle_tmp);
+                    double yP = pose_C.y + rCA * sin(angle_tmp);
+                    geometry_msgs::Pose2D p;
+                    p.x = xP;
+                    p.y = yP;
                     plan1.push_back(p);
                   }
                 }
                 if (!plan1.empty() && plan1.size() > 2)
                 {
-                  if (computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                                                  plan1.back().pose, plan1[plan1.size() - 2].pose) <= 1.3962634016) // <= 80 degree
+                  if (computeDeltaAngleEndOfPlan(pose_B.theta,
+                                                  plan1.back(), plan1[plan1.size() - 2]) <= 1.3962634016) // <= 80 degree
                   {
                     for (int i = 0; i < ((int)plan1.size() - 1); i++)
                     {
-                      double theta = calculateAngle(plan1[i].pose.position.x, plan1[i].pose.position.y,
-                                                    plan1[i + 1].pose.position.x, plan1[i + 1].pose.position.y);
-                      plan1[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);
+                      double theta = calculateAngle(plan1[i].x, plan1[i].y,
+                                                    plan1[i + 1].x, plan1[i + 1].y);
+                      plan1[i].theta = (theta);
                     }
-                    plan1.back().pose.orientation = pose_B.pose.orientation;
+                    plan1.back().theta = pose_B.theta;
                   }
-                  else if(computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                                            plan1.back().pose, plan1[plan1.size() - 2].pose) >= 1.745329252) // >= 100 degree
+                  else if(computeDeltaAngleEndOfPlan(pose_B.theta,
+                                            plan1.back(), plan1[plan1.size() - 2]) >= 1.745329252) // >= 100 degree
                   {
                     for (int i = (int)plan1.size() - 1; i > 0; i--)
                     {
-                      double theta = calculateAngle(plan1[i].pose.position.x, plan1[i].pose.position.y,
-                                                    plan1[i - 1].pose.position.x, plan1[i - 1].pose.position.y);
-                      plan1[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);
+                      double theta = calculateAngle(plan1[i].x, plan1[i].y,
+                                                    plan1[i - 1].x, plan1[i - 1].y);
+                      plan1[i].theta = (theta);
                     }
-                    plan1.front().pose.orientation = plan1[1].pose.orientation;
+                    plan1.front().theta = plan1[1].theta;
                   }
                   else
                   {
@@ -929,16 +912,16 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
           else
           {
             pose_B = pose_offset_min;
-            pose_B.pose.orientation = goal_pose.pose.orientation;
+            pose_B.theta = goal_pose.theta;
             // nếu hướng của vector AB và hướng của pose_B tạo với nhau một góc ~0 độ hoặc ~180 độ -> cung tròn AB sẽ gần như là một đọan thẳng
-            if((computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                pose_B.pose, current_pose.pose) >= 3.13 && 
-                computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                pose_B.pose, current_pose.pose) <= M_PI) ||
-                (computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                pose_B.pose, current_pose.pose) <= 0.1745 && 
-                computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                pose_B.pose, current_pose.pose) >= 0))
+            if((computeDeltaAngleEndOfPlan(pose_B.theta,
+                pose_B, current_pose) >= 3.13 && 
+                computeDeltaAngleEndOfPlan(pose_B.theta,
+                pose_B, current_pose) <= M_PI) ||
+                (computeDeltaAngleEndOfPlan(pose_B.theta,
+                pose_B, current_pose) <= 0.1745 && 
+                computeDeltaAngleEndOfPlan(pose_B.theta,
+                pose_B, current_pose) >= 0))
             {
               plan1 = divideSegment(current_pose, pose_B, 0.02);
               plan2 = divideSegment(pose_B, goal_pose, 0.02);
@@ -955,14 +938,14 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
             else
             {
               // Tính toán đoạn đường cong AB
-              geometry_msgs::PoseStamped pose_C;
-              geometry_msgs::PoseStamped pose_A = current_pose;
+              geometry_msgs::Pose2D pose_C;
+              geometry_msgs::Pose2D pose_A = current_pose;
               if(findCenterOfCurve(pose_A, pose_B, pose_C))
               {
-                double xCA = pose_A.pose.position.x - pose_C.pose.position.x;
-                double yCA = pose_A.pose.position.y - pose_C.pose.position.y;
-                double xCB = pose_B.pose.position.x - pose_C.pose.position.x;
-                double yCB = pose_B.pose.position.y - pose_C.pose.position.y;
+                double xCA = pose_A.x - pose_C.x;
+                double yCA = pose_A.y - pose_C.y;
+                double xCB = pose_B.x - pose_C.x;
+                double yCB = pose_B.y - pose_C.y;
                 double rCA = sqrt(xCA * xCA + yCA * yCA);
                 double rCB = sqrt(xCB * xCB + yCB * yCB);
                 if (abs(rCA - rCB) > 0.008)
@@ -984,10 +967,10 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
                 // check thử xem chiều góc quét từ A -> B thì angleCA + delta_angle hay angleCA - delta_angle
                 bool is_increase_angle = false;
                 double check_angle = angleCA + 50 * angle_interval * angleACB;
-                double xA1 = pose_C.pose.position.x + rCA * cos(check_angle);
-                double yA1 = pose_C.pose.position.y + rCA * sin(check_angle);
-                double xCA1 = xA1 - pose_C.pose.position.x;
-                double yCA1 = yA1 - pose_C.pose.position.y;
+                double xA1 = pose_C.x + rCA * cos(check_angle);
+                double yA1 = pose_C.y + rCA * sin(check_angle);
+                double xCA1 = xA1 - pose_C.x;
+                double yCA1 = yA1 - pose_C.y;
                 double cos_A1CB = (xCA1 * xCB + yCA1 * yCB) / (rCA * rCB);
                 if (cos_A1CB > 1)
                   cos_A1CB = 1;
@@ -1014,12 +997,11 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
                   for (double i = 0; i <= 1; i += angle_interval)
                   {
                     double angle_tmp = angleCA + angleACB * i;
-                    double xP = pose_C.pose.position.x + rCA * cos(angle_tmp);
-                    double yP = pose_C.pose.position.y + rCA * sin(angle_tmp);
-                    geometry_msgs::PoseStamped p;
-                    p.pose.position.x = xP;
-                    p.pose.position.y = yP;
-                    p.pose.position.z = 0;
+                    double xP = pose_C.x + rCA * cos(angle_tmp);
+                    double yP = pose_C.y + rCA * sin(angle_tmp);
+                    geometry_msgs::Pose2D p;
+                    p.x = xP;
+                    p.y = yP;
                     plan1.push_back(p);
                   }
                 }
@@ -1028,38 +1010,37 @@ bool makePlanPickupShelf(geometry_msgs::PoseStamped& current_pose,
                   for (double i = 0; i <= 1; i += angle_interval)
                   {
                     double angle_tmp = angleCA - angleACB * i;
-                    double xP = pose_C.pose.position.x + rCA * cos(angle_tmp);
-                    double yP = pose_C.pose.position.y + rCA * sin(angle_tmp);
-                    geometry_msgs::PoseStamped p;
-                    p.pose.position.x = xP;
-                    p.pose.position.y = yP;
-                    p.pose.position.z = 0;
+                    double xP = pose_C.x + rCA * cos(angle_tmp);
+                    double yP = pose_C.y + rCA * sin(angle_tmp);
+                    geometry_msgs::Pose2D p;
+                    p.x = xP;
+                    p.y = yP;
                     plan1.push_back(p);
                   }
                 }
                 if (!plan1.empty() && plan1.size() > 2)
                 {
-                  if (computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                                                  plan1.back().pose, plan1[plan1.size() - 2].pose) <= 1.3962634016) // <= 80 degree
+                  if (computeDeltaAngleEndOfPlan(pose_B.theta,
+                                                  plan1.back(), plan1[plan1.size() - 2]) <= 1.3962634016) // <= 80 degree
                   {
                     for (int i = 0; i < ((int)plan1.size() - 1); i++)
                     {
-                      double theta = calculateAngle(plan1[i].pose.position.x, plan1[i].pose.position.y,
-                                                    plan1[i + 1].pose.position.x, plan1[i + 1].pose.position.y);
-                      plan1[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);
+                      double theta = calculateAngle(plan1[i].x, plan1[i].y,
+                                                    plan1[i + 1].x, plan1[i + 1].y);
+                      plan1[i].theta = (theta);
                     }
-                    plan1.back().pose.orientation = pose_B.pose.orientation;
+                    plan1.back().theta = pose_B.theta;
                   }
-                  else if(computeDeltaAngleEndOfPlan(getYaw(pose_B.pose.orientation.x, pose_B.pose.orientation.y, pose_B.pose.orientation.z, pose_B.pose.orientation.w),
-                                            plan1.back().pose, plan1[plan1.size() - 2].pose) >= 1.745329252) // >= 100 degree
+                  else if(computeDeltaAngleEndOfPlan(pose_B.theta,
+                                            plan1.back(), plan1[plan1.size() - 2]) >= 1.745329252) // >= 100 degree
                   {
                     for (int i = (int)plan1.size() - 1; i > 0; i--)
                     {
-                      double theta = calculateAngle(plan1[i].pose.position.x, plan1[i].pose.position.y,
-                                                    plan1[i - 1].pose.position.x, plan1[i - 1].pose.position.y);
-                      plan1[i].pose.orientation = tf::createQuaternionMsgFromYaw(theta);
+                      double theta = calculateAngle(plan1[i].x, plan1[i].y,
+                                                    plan1[i - 1].x, plan1[i - 1].y);
+                      plan1[i].theta = (theta);
                     }
-                    plan1.front().pose.orientation = plan1[1].pose.orientation;
+                    plan1.front().theta = plan1[1].theta;
                   }
                   else
                   {
