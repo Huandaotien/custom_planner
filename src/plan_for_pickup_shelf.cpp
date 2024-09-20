@@ -255,834 +255,500 @@ bool findCenterOfCurve(geometry_msgs::Pose2D& pose_A, geometry_msgs::Pose2D& pos
   return true;
 }
 
+// Hàm tạo tuyến đường có dạng cung tròn AB
+    // pose_A: điểm start của cung tròn
+    // pose_B: điểm đích trên cung tròn
+    // pose_C: tâm của cung tròn AB
+    // result_plan: cung tròn AB (kết quả)
+bool makeCurvePlan(geometry_msgs::Pose2D& pose_A, geometry_msgs::Pose2D& pose_B, 
+    geometry_msgs::Pose2D& pose_C, std::vector<geometry_msgs::Pose2D>& result_plan)
+{
+  std::vector<geometry_msgs::Pose2D> plan1;
+
+  double xCA = pose_A.x - pose_C.x;
+  double yCA = pose_A.y - pose_C.y;
+  double xCB = pose_B.x - pose_C.x;
+  double yCB = pose_B.y - pose_C.y;
+  double rCA = sqrt(xCA * xCA + yCA * yCA);
+  double rCB = sqrt(xCB * xCB + yCB * yCB);
+  if (abs(rCA - rCB) > 0.008)
+  {
+    ROS_ERROR("pose_C is not Center of Curve AB");
+    return false;
+  }
+
+  double cos_ACB = (xCA * xCB + yCA * yCB) / (rCA * rCB);
+  if (cos_ACB > 1)
+    cos_ACB = 1;
+  else if (cos_ACB < (-1))
+    cos_ACB = -1;
+  double angleACB = acos(cos_ACB);
+  double angle_interval = 0.01;
+  // tính góc của vector CA:
+  double angleCA = atan2(yCA, xCA);
+
+  // check thử xem chiều góc quét từ A -> B thì angleCA + delta_angle hay angleCA - delta_angle
+  bool is_increase_angle = false;
+  double check_angle = angleCA + 50 * angle_interval * angleACB;
+  double xA1 = pose_C.x + rCA * cos(check_angle);
+  double yA1 = pose_C.y + rCA * sin(check_angle);
+  double xCA1 = xA1 - pose_C.x;
+  double yCA1 = yA1 - pose_C.y;
+  double cos_A1CB = (xCA1 * xCB + yCA1 * yCB) / (rCA * rCB);
+  if (cos_A1CB > 1)
+    cos_A1CB = 1;
+  else if (cos_A1CB < (-1))
+    cos_A1CB = -1;
+  double angleA1CB = acos(cos_A1CB);
+  if (angleA1CB > angleACB)
+  {
+    is_increase_angle = false;
+  }
+  else if (angleA1CB < angleACB)
+  {
+    is_increase_angle = true;
+  }
+  else
+  {
+    ROS_ERROR("Curve AB is too short, cannot compute plan");
+    return false;
+  }
+  if (is_increase_angle)
+  {
+    for (double i = 0; i <= 1; i += angle_interval)
+    {
+      double angle_tmp = angleCA + angleACB * i;
+      double xP = pose_C.x + rCA * cos(angle_tmp);
+      double yP = pose_C.y + rCA * sin(angle_tmp);
+      geometry_msgs::Pose2D p;
+      p.x = xP;
+      p.y = yP;
+      plan1.push_back(p);
+    }
+  }
+  else
+  {
+    for (double i = 0; i <= 1; i += angle_interval)
+    {
+      double angle_tmp = angleCA - angleACB * i;
+      double xP = pose_C.x + rCA * cos(angle_tmp);
+      double yP = pose_C.y + rCA * sin(angle_tmp);
+      geometry_msgs::Pose2D p;
+      p.x = xP;
+      p.y = yP;
+      plan1.push_back(p);
+    }
+  }
+  if (!plan1.empty() && plan1.size() > 2)
+  {
+    if (computeDeltaAngleEndOfPlan(pose_B.theta,
+                                    plan1.back(), plan1[plan1.size() - 2]) <= 1.3962634016) // <= 80 degree
+    {
+      for (int i = 0; i < ((int)plan1.size() - 1); i++)
+      {
+        double theta = calculateAngle(plan1[i].x, plan1[i].y,
+                                      plan1[i + 1].x, plan1[i + 1].y);
+        plan1[i].theta = (theta);
+      }
+      plan1.back().theta = pose_B.theta;                    
+    }
+    else if(computeDeltaAngleEndOfPlan(pose_B.theta,
+                              plan1.back(), plan1[plan1.size() - 2]) >= 1.745329252) // >= 100 degree
+    {
+      for (int i = (int)plan1.size() - 1; i > 0; i--)
+      {
+        double theta = calculateAngle(plan1[i].x, plan1[i].y,
+                                      plan1[i - 1].x, plan1[i - 1].y);
+        plan1[i].theta = (theta);
+      }
+      plan1.front().theta = plan1[1].theta;
+    }
+    else
+    {
+      ROS_ERROR("Pose_A yaw or Pose_B yaw is invalid value");
+      return false;
+    }
+  }
+  else
+  {
+    ROS_ERROR("Curve AB is too short, cannot compute plan");
+    return false;
+  }
+  result_plan = plan1;
+  if(!result_plan.empty())
+  return true;
+  else
+  {
+    ROS_ERROR("[makeCurvePlan] failed to make plan");           
+    return false;
+  }
+}
+
 // Hàm gọi make plan : tạo tuyến đường robot đi vào lấy xe hàng 
 // khi tạo thành công plan thì hàm trả về True, không thành công thì trả về False và có hiện cảnh báo nguyên nhân.
     // current_pose: pose của robot hiện tại trên map
     // shelf_pose_on_map: pose của xe hàng trên map
-    // d_instersection: khoảng cách từ điểm intersection đến điểm offset
     // d_offset_min: khoảng cách từ shelf pose đến điểm offset pose tối thiểu để robot có thể vào lấy hàng
     // result_plan: vector chứa plan kết quả
 bool makePlanPickupShelf(geometry_msgs::Pose2D& current_pose, 
-    geometry_msgs::Pose2D& shelf_pose_on_map, double d_intersection, 
-    double d_offset_min, bool robot_move_forward, std::vector<geometry_msgs::Pose2D>& result_plan)
+    geometry_msgs::Pose2D& shelf_pose_on_map,
+    double d_offset_min, bool robot_move_forward, 
+    std::vector<geometry_msgs::Pose2D>& result_plan)
 {
-    bool result = false;
-    std::vector<geometry_msgs::Pose2D> plan1;
-    std::vector<geometry_msgs::Pose2D> plan2;
-    if(robot_move_forward) // robot move forward
+  if(d_offset_min<=0)
+  {
+    ROS_ERROR("[makePlanPickupShelf] d_offset_min is invalid");
+    return false;
+  }
+  bool result = false;    
+  std::vector<geometry_msgs::Pose2D> plan1;
+  std::vector<geometry_msgs::Pose2D> plan2;
+  if(robot_move_forward) // robot move forward
+  {
+    double shelf_pose_yaw = shelf_pose_on_map.theta;
+    modifyYaw(shelf_pose_yaw);
+    double goal_pose_yaw = shelf_pose_yaw + M_PI;
+    modifyYaw(goal_pose_yaw);
+    geometry_msgs::Pose2D goal_pose;
+    goal_pose = shelf_pose_on_map;
+    goal_pose.theta = goal_pose_yaw;
+    geometry_msgs::Pose2D pose_offset_min;                                            
+    pose_offset_min.x = shelf_pose_on_map.x + d_offset_min*cos(shelf_pose_yaw);
+    pose_offset_min.y = shelf_pose_on_map.y + d_offset_min*sin(shelf_pose_yaw);
+    pose_offset_min.theta = goal_pose.theta;
+    geometry_msgs::Pose2D pose_intersection = findPerpendicularIntersection(current_pose, shelf_pose_on_map, pose_offset_min);
+    double d_shelfpose_to_intersection = std::sqrt(std::pow(pose_intersection.x - shelf_pose_on_map.x, 2) + 
+      std::pow(pose_intersection.y - shelf_pose_on_map.y, 2));
+    double delta_d1 = d_shelfpose_to_intersection - d_offset_min;
+    if(delta_d1 <= 0.1 && delta_d1 >= -0.1)
     {
-      double shelf_pose_yaw = shelf_pose_on_map.theta;
-      modifyYaw(shelf_pose_yaw);
-      double goal_pose_yaw = shelf_pose_yaw + M_PI;
-      modifyYaw(goal_pose_yaw);
-      geometry_msgs::Pose2D goal_pose;
-      goal_pose = shelf_pose_on_map;
-      goal_pose.theta = (goal_pose_yaw);
-      geometry_msgs::Pose2D pose_offset_min;                                            
-      pose_offset_min.x = shelf_pose_on_map.x + d_offset_min*cos(shelf_pose_yaw);
-      pose_offset_min.y = shelf_pose_on_map.y + d_offset_min*sin(shelf_pose_yaw);
-      pose_offset_min.theta = goal_pose.theta;
-      geometry_msgs::Pose2D pose_intersection = findPerpendicularIntersection(current_pose, shelf_pose_on_map, pose_offset_min);
-      double d_shelfpose_to_intersection = std::sqrt(std::pow(pose_intersection.x - shelf_pose_on_map.x, 2) + 
-        std::pow(pose_intersection.y - shelf_pose_on_map.y, 2));
-      double delta_d1 = d_shelfpose_to_intersection - d_offset_min;
-      if(delta_d1 <= 0.1)
+      plan1.clear();
+      plan1 = divideSegment(pose_offset_min, goal_pose, 0.02);
+      result_plan = plan1;
+      if(!result_plan.empty())
+      {
+        result = true;
+        return true;
+        ROS_INFO("[makePlanPickupShelf] make plan TH1");
+      }
+      else
+      {
+        ROS_ERROR("[makePlanPickupShelf] failed to make plan TH1");
+        return false;
+      }
+    }
+    else if(delta_d1 > 0.1)
+    {
+      geometry_msgs::Pose2D pose_B = pose_offset_min;
+      pose_B.theta = goal_pose.theta;
+      // nếu hướng của vector AB và hướng của pose_B tạo với nhau một góc ~0 độ hoặc ~180 độ -> cung tròn AB sẽ gần như là một đọan thẳng
+      if((computeDeltaAngleEndOfPlan(pose_B.theta,
+          pose_B, current_pose) >= 3.13 && 
+          computeDeltaAngleEndOfPlan(pose_B.theta,
+          pose_B, current_pose) <= M_PI) ||
+          (computeDeltaAngleEndOfPlan(pose_B.theta,
+          pose_B, current_pose) <= 0.1745 && 
+          computeDeltaAngleEndOfPlan(pose_B.theta,
+          pose_B, current_pose) >= 0))
       {
         plan1.clear();
-        plan1 = divideSegment(pose_offset_min, goal_pose, 0.02);
-        result_plan = plan1;
+        plan2.clear();
+        plan1 = divideSegment(current_pose, pose_B, 0.02);
+        plan2 = divideSegment(pose_B, goal_pose, 0.02);
+        if(!plan1.empty() && !plan2.empty())
+        { 
+          result_plan.assign(plan1.begin(), plan1.end());
+          result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
+        }
         if(!result_plan.empty())
-        return true;
+        {
+          ROS_INFO("[makePlanPickupShelf] make plan TH2");
+          result = true;
+          return true;
+        }
         else
         {
-          ROS_ERROR("[makePlanPickupShelf] failed to make plan TH1");
+          ROS_ERROR("[makePlanPickupShelf] failed to make plan TH2");           
           return false;
         }
       }
       else
       {
-        geometry_msgs::Pose2D pose_B;
-        pose_B.x = pose_intersection.x + d_intersection*cos(goal_pose_yaw);
-        pose_B.y = pose_intersection.y + d_intersection*sin(goal_pose_yaw);
-        pose_B.theta = goal_pose.theta;
-        if(d_intersection <= 0.1)
+        plan1.clear();
+        plan2.clear();
+        // Tính toán đoạn đường cong AB
+        geometry_msgs::Pose2D pose_C;
+        geometry_msgs::Pose2D pose_A = current_pose;
+        if(findCenterOfCurve(pose_A, pose_B, pose_C))
         {
-          double pose_intersection_yaw = calculateAngle(current_pose.x, current_pose.y,
-            pose_intersection.x, pose_intersection.y);
-          pose_intersection.theta = (pose_intersection_yaw);
-          plan1.clear();
-          plan2.clear();
-          plan1 = divideSegment(current_pose, pose_intersection, 0.02);    
-          pose_intersection.theta = (goal_pose_yaw); 
-          plan2 = divideSegment(pose_intersection, goal_pose, 0.02);     
-          result_plan.assign(plan1.begin(), plan1.end());
-          result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());   
-          if(!result_plan.empty())
-          return true;
+          if(makeCurvePlan(pose_A, pose_B, pose_C, plan1))
+          {
+            plan2 = divideSegment(pose_B, goal_pose, 0.02);
+            if(!plan1.empty() && !plan2.empty())
+            {
+              result_plan.assign(plan1.begin(), plan1.end());
+              result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
+            }
+            if(!result_plan.empty())
+            {
+              ROS_INFO("[makePlanPickupShelf] make plan TH3");
+              result = true;
+              return true;
+            }
+            else
+            {
+              ROS_ERROR("[makePlanPickupShelf] failed to make plan TH3");           
+              return false;
+            }
+          }
           else
           {
-            ROS_ERROR("[makePlanPickupShelf] failed to make plan TH2");            
-            return false;
+            plan1 = divideSegment(current_pose, pose_B, 0.02);
+            plan2 = divideSegment(pose_B, goal_pose, 0.02);
+            if(!plan1.empty() && !plan2.empty())
+            {
+              result_plan.assign(plan1.begin(), plan1.end());
+              result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
+            }
+            if(!result_plan.empty())
+            {
+              ROS_INFO("[makePlanPickupShelf] make plan TH4");
+              result = true;
+              return true;
+            }
+            else
+            {
+              ROS_ERROR("[makePlanPickupShelf] failed to make plan TH4");           
+              return false;
+            }
           }
         }
         else
-        {
-          double d_shelfpose_to_intersection = std::sqrt(std::pow(pose_B.x - shelf_pose_on_map.x, 2) + 
-            std::pow(pose_B.y - shelf_pose_on_map.y, 2));
-          double delta2 = d_shelfpose_to_intersection - d_offset_min;
-          if(delta2 > 0.1 &&
-            computeDeltaAngleStartOfPlan(shelf_pose_yaw, shelf_pose_on_map, pose_B) <= 0.5235987756) // <= 30 degree
+        {          
+          plan1 = divideSegment(current_pose, pose_B, 0.02);
+          plan2 = divideSegment(pose_B, goal_pose, 0.02);
+          if(!plan1.empty() && !plan2.empty())
           {
-            // nếu hướng của vector AB và hướng của pose_B tạo với nhau một góc ~0 độ hoặc ~180 độ -> cung tròn AB sẽ gần như là một đọan thẳng
-            if((computeDeltaAngleEndOfPlan(pose_B.theta,
-                pose_B, current_pose) >= 3.13 && 
-                computeDeltaAngleEndOfPlan(pose_B.theta,
-                pose_B, current_pose) <= M_PI) ||
-                (computeDeltaAngleEndOfPlan(pose_B.theta,
-                pose_B, current_pose) <= 0.1745 && 
-                computeDeltaAngleEndOfPlan(pose_B.theta,
-                pose_B, current_pose) >= 0))
-            {
-              plan1.clear();
-              plan2.clear();
-              plan1 = divideSegment(current_pose, pose_B, 0.02);
-              plan2 = divideSegment(pose_B, goal_pose, 0.02);
-              result_plan.assign(plan1.begin(), plan1.end());
-              result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
-              if(!result_plan.empty())
-              return true;
-              else
-              {
-                ROS_ERROR("[makePlanPickupShelf] failed to make plan TH3");           
-                return false;
-              }
-            }
-            else
-            {
-              // Tính toán đoạn đường cong AB
-              geometry_msgs::Pose2D pose_C;
-              geometry_msgs::Pose2D pose_A = current_pose;
-              if(findCenterOfCurve(pose_A, pose_B, pose_C))
-              {
-                double xCA = pose_A.x - pose_C.x;
-                double yCA = pose_A.y - pose_C.y;
-                double xCB = pose_B.x - pose_C.x;
-                double yCB = pose_B.y - pose_C.y;
-                double rCA = sqrt(xCA * xCA + yCA * yCA);
-                double rCB = sqrt(xCB * xCB + yCB * yCB);
-                if (abs(rCA - rCB) > 0.008)
-                {
-                  ROS_ERROR("pose_C is not Center of Curve AB");
-                  return false;
-                }
-
-                double cos_ACB = (xCA * xCB + yCA * yCB) / (rCA * rCB);
-                if (cos_ACB > 1)
-                  cos_ACB = 1;
-                else if (cos_ACB < (-1))
-                  cos_ACB = -1;
-                double angleACB = acos(cos_ACB);
-                double angle_interval = 0.01;
-                // tính góc của vector CA:
-                double angleCA = atan2(yCA, xCA);
-
-                // check thử xem chiều góc quét từ A -> B thì angleCA + delta_angle hay angleCA - delta_angle
-                bool is_increase_angle = false;
-                double check_angle = angleCA + 50 * angle_interval * angleACB;
-                double xA1 = pose_C.x + rCA * cos(check_angle);
-                double yA1 = pose_C.y + rCA * sin(check_angle);
-                double xCA1 = xA1 - pose_C.x;
-                double yCA1 = yA1 - pose_C.y;
-                double cos_A1CB = (xCA1 * xCB + yCA1 * yCB) / (rCA * rCB);
-                if (cos_A1CB > 1)
-                  cos_A1CB = 1;
-                else if (cos_A1CB < (-1))
-                  cos_A1CB = -1;
-                double angleA1CB = acos(cos_A1CB);
-                if (angleA1CB > angleACB)
-                {
-                  is_increase_angle = false;
-                }
-                else if (angleA1CB < angleACB)
-                {
-                  is_increase_angle = true;
-                }
-                else
-                {
-                  ROS_ERROR("Curve AB is too short, cannot compute plan");
-                  return false;
-                }
-                plan1.clear();
-                plan2.clear();
-                if (is_increase_angle)
-                {
-                  for (double i = 0; i <= 1; i += angle_interval)
-                  {
-                    double angle_tmp = angleCA + angleACB * i;
-                    double xP = pose_C.x + rCA * cos(angle_tmp);
-                    double yP = pose_C.y + rCA * sin(angle_tmp);
-                    geometry_msgs::Pose2D p;
-                    p.x = xP;
-                    p.y = yP;
-                    plan1.push_back(p);
-                  }
-                }
-                else
-                {
-                  for (double i = 0; i <= 1; i += angle_interval)
-                  {
-                    double angle_tmp = angleCA - angleACB * i;
-                    double xP = pose_C.x + rCA * cos(angle_tmp);
-                    double yP = pose_C.y + rCA * sin(angle_tmp);
-                    geometry_msgs::Pose2D p;
-                    p.x = xP;
-                    p.y = yP;
-                    plan1.push_back(p);
-                  }
-                }
-                if (!plan1.empty() && plan1.size() > 2)
-                {
-                  if (computeDeltaAngleEndOfPlan(pose_B.theta,
-                                                  plan1.back(), plan1[plan1.size() - 2]) <= 1.3962634016) // <= 80 degree
-                  {
-                    for (int i = 0; i < ((int)plan1.size() - 1); i++)
-                    {
-                      double theta = calculateAngle(plan1[i].x, plan1[i].y,
-                                                    plan1[i + 1].x, plan1[i + 1].y);
-                      plan1[i].theta = (theta);
-                    }
-                    plan1.back().theta = pose_B.theta;                    
-                  }
-                  else if(computeDeltaAngleEndOfPlan(pose_B.theta,
-                                            plan1.back(), plan1[plan1.size() - 2]) >= 1.745329252) // >= 100 degree
-                  {
-                    for (int i = (int)plan1.size() - 1; i > 0; i--)
-                    {
-                      double theta = calculateAngle(plan1[i].x, plan1[i].y,
-                                                    plan1[i - 1].x, plan1[i - 1].y);
-                      plan1[i].theta = (theta);
-                    }
-                    plan1.front().theta = plan1[1].theta;
-                  }
-                  else
-                  {
-                    ROS_ERROR("Pose_A yaw or Pose_B yaw is invalid value");
-                    return false;
-                  }
-                }
-                else
-                {
-                  ROS_ERROR("Curve AB is too short, cannot compute plan");
-                  return false;
-                }
-                plan2 = divideSegment(pose_B, goal_pose, 0.02);
-                result_plan.assign(plan1.begin(), plan1.end());
-                result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
-                if(!result_plan.empty())
-                return true;
-                else
-                {
-                  ROS_ERROR("[makePlanPickupShelf] failed to make plan TH4");           
-                  return false;
-                }
-              }
-              else
-              {
-                plan1 = divideSegment(current_pose, pose_B, 0.02);
-                plan2 = divideSegment(pose_B, goal_pose, 0.02);
-                result_plan.assign(plan1.begin(), plan1.end());
-                result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
-                if(!result_plan.empty())
-                return true;
-                else
-                {
-                  ROS_ERROR("[makePlanPickupShelf] failed to make plan TH5");           
-                  return false;
-                }
-              }
-            }
+            result_plan.assign(plan1.begin(), plan1.end());
+            result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
+          }
+          if(!result_plan.empty())
+          {
+            ROS_INFO("[makePlanPickupShelf] make plan TH5");
+            result = true;
+            return true;
           }
           else
           {
-            pose_B = pose_offset_min;
-            pose_B.theta = goal_pose.theta;
-            // nếu hướng của vector AB và hướng của pose_B tạo với nhau một góc ~0 độ hoặc ~180 độ -> cung tròn AB sẽ gần như là một đọan thẳng
-            if((computeDeltaAngleEndOfPlan(pose_B.theta,
-                pose_B, current_pose) >= 3.13 && 
-                computeDeltaAngleEndOfPlan(pose_B.theta,
-                pose_B, current_pose) <= M_PI) ||
-                (computeDeltaAngleEndOfPlan(pose_B.theta,
-                pose_B, current_pose) <= 0.1745 && 
-                computeDeltaAngleEndOfPlan(pose_B.theta,
-                pose_B, current_pose) >= 0))
-            {
-              plan1 = divideSegment(current_pose, pose_B, 0.02);
-              plan2 = divideSegment(pose_B, goal_pose, 0.02);
-              result_plan.assign(plan1.begin(), plan1.end());
-              result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
-              if(!result_plan.empty())
-              return true;
-              else
-              {
-                ROS_ERROR("[makePlanPickupShelf] failed to make plan TH6");           
-                return false;
-              }
-            }
-            else
-            {
-              // Tính toán đoạn đường cong AB
-              geometry_msgs::Pose2D pose_C;
-              geometry_msgs::Pose2D pose_A = current_pose;
-              if(findCenterOfCurve(pose_A, pose_B, pose_C))
-              {
-                double xCA = pose_A.x - pose_C.x;
-                double yCA = pose_A.y - pose_C.y;
-                double xCB = pose_B.x - pose_C.x;
-                double yCB = pose_B.y - pose_C.y;
-                double rCA = sqrt(xCA * xCA + yCA * yCA);
-                double rCB = sqrt(xCB * xCB + yCB * yCB);
-                if (abs(rCA - rCB) > 0.008)
-                {
-                  ROS_ERROR("pose_C is not Center of Curve AB");
-                  return false;
-                }
-
-                double cos_ACB = (xCA * xCB + yCA * yCB) / (rCA * rCB);
-                if (cos_ACB > 1)
-                  cos_ACB = 1;
-                else if (cos_ACB < (-1))
-                  cos_ACB = -1;
-                double angleACB = acos(cos_ACB);
-                double angle_interval = 0.01;
-                // tính góc của vector CA:
-                double angleCA = atan2(yCA, xCA);
-
-                // check thử xem chiều góc quét từ A -> B thì angleCA + delta_angle hay angleCA - delta_angle
-                bool is_increase_angle = false;
-                double check_angle = angleCA + 50 * angle_interval * angleACB;
-                double xA1 = pose_C.x + rCA * cos(check_angle);
-                double yA1 = pose_C.y + rCA * sin(check_angle);
-                double xCA1 = xA1 - pose_C.x;
-                double yCA1 = yA1 - pose_C.y;
-                double cos_A1CB = (xCA1 * xCB + yCA1 * yCB) / (rCA * rCB);
-                if (cos_A1CB > 1)
-                  cos_A1CB = 1;
-                else if (cos_A1CB < (-1))
-                  cos_A1CB = -1;
-                double angleA1CB = acos(cos_A1CB);
-                if (angleA1CB > angleACB)
-                {
-                  is_increase_angle = false;
-                }
-                else if (angleA1CB < angleACB)
-                {
-                  is_increase_angle = true;
-                }
-                else
-                {
-                  ROS_ERROR("Curve AB is too short, cannot compute plan");
-                  return false;
-                }
-                plan1.clear();
-                plan2.clear();
-                if (is_increase_angle)
-                {
-                  for (double i = 0; i <= 1; i += angle_interval)
-                  {
-                    double angle_tmp = angleCA + angleACB * i;
-                    double xP = pose_C.x + rCA * cos(angle_tmp);
-                    double yP = pose_C.y + rCA * sin(angle_tmp);
-                    geometry_msgs::Pose2D p;
-                    p.x = xP;
-                    p.y = yP;
-                    plan1.push_back(p);
-                  }
-                }
-                else
-                {
-                  for (double i = 0; i <= 1; i += angle_interval)
-                  {
-                    double angle_tmp = angleCA - angleACB * i;
-                    double xP = pose_C.x + rCA * cos(angle_tmp);
-                    double yP = pose_C.y + rCA * sin(angle_tmp);
-                    geometry_msgs::Pose2D p;
-                    p.x = xP;
-                    p.y = yP;
-                    plan1.push_back(p);
-                  }
-                }
-                if (!plan1.empty() && plan1.size() > 2)
-                {
-                  if (computeDeltaAngleEndOfPlan(pose_B.theta,
-                                                  plan1.back(), plan1[plan1.size() - 2]) <= 1.3962634016) // <= 80 degree
-                  {
-                    for (int i = 0; i < ((int)plan1.size() - 1); i++)
-                    {
-                      double theta = calculateAngle(plan1[i].x, plan1[i].y,
-                                                    plan1[i + 1].x, plan1[i + 1].y);
-                      plan1[i].theta = (theta);
-                    }
-                    plan1.back().theta = pose_B.theta;
-                  }
-                  else if(computeDeltaAngleEndOfPlan(pose_B.theta,
-                                            plan1.back(), plan1[plan1.size() - 2]) >= 1.745329252) // >= 100 degree
-                  {
-                    for (int i = (int)plan1.size() - 1; i > 0; i--)
-                    {
-                      double theta = calculateAngle(plan1[i].x, plan1[i].y,
-                                                    plan1[i - 1].x, plan1[i - 1].y);
-                      plan1[i].theta = (theta);
-                    }
-                    plan1.front().theta = plan1[1].theta;
-                  }
-                  else
-                  {
-                    ROS_ERROR("Pose_A yaw or Pose_B yaw is invalid value");
-                    return false;
-                  }
-                }
-                else
-                {
-                  ROS_ERROR("Curve AB is too short, cannot compute plan");
-                  return false;
-                }
-                plan2 = divideSegment(pose_B, goal_pose, 0.02);
-                result_plan.assign(plan1.begin(), plan1.end());
-                result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
-                if(!result_plan.empty())
-                return true;
-                else
-                {
-                  ROS_ERROR("[makePlanPickupShelf] failed to make plan TH7");           
-                  return false;
-                }
-              }
-              else
-              {
-                plan1 = divideSegment(current_pose, pose_B, 0.02);
-                plan2 = divideSegment(pose_B, goal_pose, 0.02);
-                result_plan.assign(plan1.begin(), plan1.end());
-                result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
-                if(!result_plan.empty())
-                return true;
-                else
-                {
-                  ROS_ERROR("[makePlanPickupShelf] failed to make plan TH8");           
-                  return false;
-                }
-              }
-            }
+            ROS_ERROR("[makePlanPickupShelf] failed to make plan TH5");           
+            return false;
           }
         }
       }
     }
-    else // robot move backward
+    else
     {
-      double shelf_pose_yaw = shelf_pose_on_map.theta;
-      modifyYaw(shelf_pose_yaw);
-      double goal_pose_yaw = shelf_pose_yaw;
-      modifyYaw(goal_pose_yaw);
-      geometry_msgs::Pose2D goal_pose;
-      goal_pose = shelf_pose_on_map;
-      goal_pose.theta = (goal_pose_yaw);
-      geometry_msgs::Pose2D pose_offset_min;                                            
-      pose_offset_min.x = shelf_pose_on_map.x + d_offset_min*cos(shelf_pose_yaw);
-      pose_offset_min.y = shelf_pose_on_map.y + d_offset_min*sin(shelf_pose_yaw);
-      pose_offset_min.theta = goal_pose.theta;
-      geometry_msgs::Pose2D pose_intersection = findPerpendicularIntersection(current_pose, shelf_pose_on_map, pose_offset_min);
-      double d_shelfpose_to_intersection = std::sqrt(std::pow(pose_intersection.x - shelf_pose_on_map.x, 2) + 
-        std::pow(pose_intersection.y - shelf_pose_on_map.y, 2));
-      double delta_d1 = d_shelfpose_to_intersection - d_offset_min;
-      if(delta_d1 <= 0.1)
+      double pose_intersection_yaw = calculateAngle(current_pose.x, current_pose.y,
+      pose_intersection.x, pose_intersection.y);
+      pose_intersection.theta = pose_intersection_yaw;
+      plan1.clear();
+      plan2.clear();
+      plan1 = divideSegment(current_pose, pose_intersection, 0.02);    
+      pose_intersection.theta = goal_pose_yaw; 
+      plan2 = divideSegment(pose_intersection, goal_pose, 0.02);
+      if(!plan1.empty() && !plan2.empty())
+      {     
+        result_plan.assign(plan1.begin(), plan1.end());
+        result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
+      }
+      if(!result_plan.empty())
+      {
+        ROS_INFO("[makePlanPickupShelf] make plan TH6");
+        result = true;
+        return true;
+      }
+      else
+      {
+        ROS_ERROR("[makePlanPickupShelf] failed to make plan TH6");            
+        return false;
+      }
+    }
+  }
+  else // robot move backward
+  {
+    double shelf_pose_yaw = shelf_pose_on_map.theta;
+    modifyYaw(shelf_pose_yaw);
+    double goal_pose_yaw = shelf_pose_yaw;
+    modifyYaw(goal_pose_yaw);
+    geometry_msgs::Pose2D goal_pose;
+    goal_pose = shelf_pose_on_map;
+    goal_pose.theta = goal_pose_yaw;
+    geometry_msgs::Pose2D pose_offset_min;                                            
+    pose_offset_min.x = shelf_pose_on_map.x + d_offset_min*cos(shelf_pose_yaw);
+    pose_offset_min.y = shelf_pose_on_map.y + d_offset_min*sin(shelf_pose_yaw);
+    pose_offset_min.theta = goal_pose.theta;
+    geometry_msgs::Pose2D pose_intersection = findPerpendicularIntersection(current_pose, shelf_pose_on_map, pose_offset_min);
+    double d_shelfpose_to_intersection = std::sqrt(std::pow(pose_intersection.x - shelf_pose_on_map.x, 2) + 
+      std::pow(pose_intersection.y - shelf_pose_on_map.y, 2));
+    double delta_d1 = d_shelfpose_to_intersection - d_offset_min;
+    if(delta_d1 <= 0.1 && delta_d1 >= -0.1)
+    {
+      plan1.clear();
+      plan1 = divideSegment(pose_offset_min, goal_pose, 0.02);
+      result_plan = plan1;
+      if(!result_plan.empty())
+      {
+        result = true;
+        return true;
+        ROS_INFO("[makePlanPickupShelf] make plan TH7");
+      }
+      else
+      {
+        ROS_ERROR("[makePlanPickupShelf] failed to make plan TH7");
+        return false;
+      }
+    }
+    else if(delta_d1 > 0.1)
+    {
+      geometry_msgs::Pose2D pose_B = pose_offset_min;
+      pose_B.theta = goal_pose.theta;
+      // nếu hướng của vector AB và hướng của pose_B tạo với nhau một góc ~0 độ hoặc ~180 độ -> cung tròn AB sẽ gần như là một đọan thẳng
+      if((computeDeltaAngleEndOfPlan(pose_B.theta,
+          pose_B, current_pose) >= 3.13 && 
+          computeDeltaAngleEndOfPlan(pose_B.theta,
+          pose_B, current_pose) <= M_PI) ||
+          (computeDeltaAngleEndOfPlan(pose_B.theta,
+          pose_B, current_pose) <= 0.1745 && 
+          computeDeltaAngleEndOfPlan(pose_B.theta,
+          pose_B, current_pose) >= 0))
       {
         plan1.clear();
-        plan1 = divideSegment(pose_offset_min, goal_pose, 0.02);
-        result_plan = plan1;
+        plan2.clear();
+        plan1 = divideSegment(current_pose, pose_B, 0.02);
+        plan2 = divideSegment(pose_B, goal_pose, 0.02);
+        if(!plan1.empty() && !plan2.empty())
+        { 
+          result_plan.assign(plan1.begin(), plan1.end());
+          result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
+        }
         if(!result_plan.empty())
-        return true;
+        {
+          ROS_INFO("[makePlanPickupShelf] make plan TH8");
+          result = true;
+          return true;
+        }
         else
         {
-          ROS_ERROR("[makePlanPickupShelf] failed to make plan TH9");
+          ROS_ERROR("[makePlanPickupShelf] failed to make plan TH8");           
           return false;
         }
       }
       else
       {
-        geometry_msgs::Pose2D pose_B;
-        pose_B.x = pose_intersection.x + d_intersection*cos(goal_pose_yaw);
-        pose_B.y = pose_intersection.y + d_intersection*sin(goal_pose_yaw);
-        pose_B.theta = goal_pose.theta;
-        if(d_intersection <= 0.1)
+        plan1.clear();
+        plan2.clear();
+        // Tính toán đoạn đường cong AB
+        geometry_msgs::Pose2D pose_C;
+        geometry_msgs::Pose2D pose_A = current_pose;
+        geometry_msgs::Pose2D pose_B_opposite;
+        pose_B_opposite = pose_B;
+        double pose_B_opposite_yaw = pose_B.theta + M_PI;
+        modifyYaw(pose_B_opposite_yaw);
+        pose_B_opposite.theta = pose_B_opposite_yaw;
+        if(findCenterOfCurve(pose_A, pose_B_opposite, pose_C))
         {
-          double pose_intersection_yaw = calculateAngle(pose_intersection.x, pose_intersection.y,
-            current_pose.x, current_pose.y);
-          pose_intersection.theta = (pose_intersection_yaw);
-          plan1.clear();
-          plan2.clear();
-          plan1 = divideSegment(current_pose, pose_intersection, 0.02);   
-          pose_intersection.theta = (goal_pose_yaw);
-          plan2 = divideSegment(pose_intersection, goal_pose, 0.02);     
-          result_plan.assign(plan1.begin(), plan1.end());
-          result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());   
-          if(!result_plan.empty())
-          return true;
+          if(makeCurvePlan(pose_A, pose_B, pose_C, plan1))
+          {
+            plan2 = divideSegment(pose_B, goal_pose, 0.02);
+            if(!plan1.empty() && !plan2.empty())
+            {
+              result_plan.assign(plan1.begin(), plan1.end());
+              result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
+            }
+            if(!result_plan.empty())
+            {
+              ROS_INFO("[makePlanPickupShelf] make plan TH9");
+              result = true;
+              return true;
+            }
+            else
+            {
+              ROS_ERROR("[makePlanPickupShelf] failed to make plan TH9");           
+              return false;
+            }
+          }
           else
           {
-            ROS_ERROR("[makePlanPickupShelf] failed to make plan TH10");            
-            return false;
+            plan1 = divideSegment(current_pose, pose_B, 0.02);
+            plan2 = divideSegment(pose_B, goal_pose, 0.02);
+            if(!plan1.empty() && !plan2.empty())
+            {
+              result_plan.assign(plan1.begin(), plan1.end());
+              result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
+            }
+            if(!result_plan.empty())
+            {
+              ROS_INFO("[makePlanPickupShelf] make plan TH10");
+              result = true;
+              return true;
+            }
+            else
+            {
+              ROS_ERROR("[makePlanPickupShelf] failed to make plan TH10");           
+              return false;
+            }
           }
         }
         else
-        {
-          double d_shelfpose_to_intersection = std::sqrt(std::pow(pose_B.x - shelf_pose_on_map.x, 2) + 
-            std::pow(pose_B.y - shelf_pose_on_map.y, 2));
-          double delta2 = d_shelfpose_to_intersection - d_offset_min;
-          if(delta2 > 0.1 &&
-            computeDeltaAngleStartOfPlan(shelf_pose_yaw, shelf_pose_on_map, pose_B) <= 0.5235987756) // <= 30 degree
+        {          
+          plan1 = divideSegment(current_pose, pose_B, 0.02);
+          plan2 = divideSegment(pose_B, goal_pose, 0.02);
+          if(!plan1.empty() && !plan2.empty())
           {
-            // nếu hướng của vector AB và hướng của pose_B tạo với nhau một góc ~0 độ hoặc ~180 độ -> cung tròn AB sẽ gần như là một đọan thẳng
-            if((computeDeltaAngleEndOfPlan(pose_B.theta,
-                pose_B, current_pose) >= 3.13 && 
-                computeDeltaAngleEndOfPlan(pose_B.theta,
-                pose_B, current_pose) <= M_PI) ||
-                (computeDeltaAngleEndOfPlan(pose_B.theta,
-                pose_B, current_pose) <= 0.1745 && 
-                computeDeltaAngleEndOfPlan(pose_B.theta,
-                pose_B, current_pose) >= 0))
-            {
-              plan1.clear();
-              plan2.clear();
-              plan1 = divideSegment(current_pose, pose_B, 0.02);
-              plan2 = divideSegment(pose_B, goal_pose, 0.02);
-              result_plan.assign(plan1.begin(), plan1.end());
-              result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
-              if(!result_plan.empty())
-              return true;
-              else
-              {
-                ROS_ERROR("[makePlanPickupShelf] failed to make plan TH11");           
-                return false;
-              }
-            }
-            else
-            {
-              // Tính toán đoạn đường cong AB
-              geometry_msgs::Pose2D pose_C;
-              geometry_msgs::Pose2D pose_A = current_pose;
-              if(findCenterOfCurve(pose_A, pose_B, pose_C))
-              {
-                double xCA = pose_A.x - pose_C.x;
-                double yCA = pose_A.y - pose_C.y;
-                double xCB = pose_B.x - pose_C.x;
-                double yCB = pose_B.y - pose_C.y;
-                double rCA = sqrt(xCA * xCA + yCA * yCA);
-                double rCB = sqrt(xCB * xCB + yCB * yCB);
-                if (abs(rCA - rCB) > 0.008)
-                {
-                  ROS_ERROR("pose_C is not Center of Curve AB");
-                  return false;
-                }
-
-                double cos_ACB = (xCA * xCB + yCA * yCB) / (rCA * rCB);
-                if (cos_ACB > 1)
-                  cos_ACB = 1;
-                else if (cos_ACB < (-1))
-                  cos_ACB = -1;
-                double angleACB = acos(cos_ACB);
-                double angle_interval = 0.01;
-                // tính góc của vector CA:
-                double angleCA = atan2(yCA, xCA);
-
-                // check thử xem chiều góc quét từ A -> B thì angleCA + delta_angle hay angleCA - delta_angle
-                bool is_increase_angle = false;
-                double check_angle = angleCA + 50 * angle_interval * angleACB;
-                double xA1 = pose_C.x + rCA * cos(check_angle);
-                double yA1 = pose_C.y + rCA * sin(check_angle);
-                double xCA1 = xA1 - pose_C.x;
-                double yCA1 = yA1 - pose_C.y;
-                double cos_A1CB = (xCA1 * xCB + yCA1 * yCB) / (rCA * rCB);
-                if (cos_A1CB > 1)
-                  cos_A1CB = 1;
-                else if (cos_A1CB < (-1))
-                  cos_A1CB = -1;
-                double angleA1CB = acos(cos_A1CB);
-                if (angleA1CB > angleACB)
-                {
-                  is_increase_angle = false;
-                }
-                else if (angleA1CB < angleACB)
-                {
-                  is_increase_angle = true;
-                }
-                else
-                {
-                  ROS_ERROR("Curve AB is too short, cannot compute plan");
-                  return false;
-                }
-                plan1.clear();
-                plan2.clear();
-                if (is_increase_angle)
-                {
-                  for (double i = 0; i <= 1; i += angle_interval)
-                  {
-                    double angle_tmp = angleCA + angleACB * i;
-                    double xP = pose_C.x + rCA * cos(angle_tmp);
-                    double yP = pose_C.y + rCA * sin(angle_tmp);
-                    geometry_msgs::Pose2D p;
-                    p.x = xP;
-                    p.y = yP;
-                    plan1.push_back(p);
-                  }
-                }
-                else
-                {
-                  for (double i = 0; i <= 1; i += angle_interval)
-                  {
-                    double angle_tmp = angleCA - angleACB * i;
-                    double xP = pose_C.x + rCA * cos(angle_tmp);
-                    double yP = pose_C.y + rCA * sin(angle_tmp);
-                    geometry_msgs::Pose2D p;
-                    p.x = xP;
-                    p.y = yP;
-                    plan1.push_back(p);
-                  }
-                }
-                if (!plan1.empty() && plan1.size() > 2)
-                {
-                  if (computeDeltaAngleEndOfPlan(pose_B.theta,
-                                                  plan1.back(), plan1[plan1.size() - 2]) <= 1.3962634016) // <= 80 degree
-                  {
-                    for (int i = 0; i < ((int)plan1.size() - 1); i++)
-                    {
-                      double theta = calculateAngle(plan1[i].x, plan1[i].y,
-                                                    plan1[i + 1].x, plan1[i + 1].y);
-                      plan1[i].theta = (theta);
-                    }
-                    plan1.back().theta = pose_B.theta;
-                  }
-                  else if(computeDeltaAngleEndOfPlan(pose_B.theta,
-                                            plan1.back(), plan1[plan1.size() - 2]) >= 1.745329252) // >= 100 degree
-                  {
-                    for (int i = (int)plan1.size() - 1; i > 0; i--)
-                    {
-                      double theta = calculateAngle(plan1[i].x, plan1[i].y,
-                                                    plan1[i - 1].x, plan1[i - 1].y);
-                      plan1[i].theta = (theta);
-                    }
-                    plan1.front().theta = plan1[1].theta;
-                  }
-                  else
-                  {
-                    ROS_ERROR("Pose_A yaw or Pose_B yaw is invalid value");
-                    return false;
-                  }
-                }
-                else
-                {
-                  ROS_ERROR("Curve AB is too short, cannot compute plan");
-                  return false;
-                }
-                plan2 = divideSegment(pose_B, goal_pose, 0.02);
-                result_plan.assign(plan1.begin(), plan1.end());
-                result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
-                if(!result_plan.empty())
-                return true;
-                else
-                {
-                  ROS_ERROR("[makePlanPickupShelf] failed to make plan TH12");           
-                  return false;
-                }
-              }
-              else
-              {
-                plan1 = divideSegment(current_pose, pose_B, 0.02);
-                plan2 = divideSegment(pose_B, goal_pose, 0.02);
-                result_plan.assign(plan1.begin(), plan1.end());
-                result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
-                if(!result_plan.empty())
-                return true;
-                else
-                {
-                  ROS_ERROR("[makePlanPickupShelf] failed to make plan TH13");           
-                  return false;
-                }
-              }
-            }
+            result_plan.assign(plan1.begin(), plan1.end());
+            result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
+          }
+          if(!result_plan.empty())
+          {
+            ROS_INFO("[makePlanPickupShelf] make plan TH11");
+            result = true;
+            return true;
           }
           else
           {
-            pose_B = pose_offset_min;
-            pose_B.theta = goal_pose.theta;
-            // nếu hướng của vector AB và hướng của pose_B tạo với nhau một góc ~0 độ hoặc ~180 độ -> cung tròn AB sẽ gần như là một đọan thẳng
-            if((computeDeltaAngleEndOfPlan(pose_B.theta,
-                pose_B, current_pose) >= 3.13 && 
-                computeDeltaAngleEndOfPlan(pose_B.theta,
-                pose_B, current_pose) <= M_PI) ||
-                (computeDeltaAngleEndOfPlan(pose_B.theta,
-                pose_B, current_pose) <= 0.1745 && 
-                computeDeltaAngleEndOfPlan(pose_B.theta,
-                pose_B, current_pose) >= 0))
-            {
-              plan1 = divideSegment(current_pose, pose_B, 0.02);
-              plan2 = divideSegment(pose_B, goal_pose, 0.02);
-              result_plan.assign(plan1.begin(), plan1.end());
-              result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
-              if(!result_plan.empty())
-              return true;
-              else
-              {
-                ROS_ERROR("[makePlanPickupShelf] failed to make plan TH14");           
-                return false;
-              }
-            }
-            else
-            {
-              // Tính toán đoạn đường cong AB
-              geometry_msgs::Pose2D pose_C;
-              geometry_msgs::Pose2D pose_A = current_pose;
-              if(findCenterOfCurve(pose_A, pose_B, pose_C))
-              {
-                double xCA = pose_A.x - pose_C.x;
-                double yCA = pose_A.y - pose_C.y;
-                double xCB = pose_B.x - pose_C.x;
-                double yCB = pose_B.y - pose_C.y;
-                double rCA = sqrt(xCA * xCA + yCA * yCA);
-                double rCB = sqrt(xCB * xCB + yCB * yCB);
-                if (abs(rCA - rCB) > 0.008)
-                {
-                  ROS_ERROR("pose_C is not Center of Curve AB");
-                  return false;
-                }
-
-                double cos_ACB = (xCA * xCB + yCA * yCB) / (rCA * rCB);
-                if (cos_ACB > 1)
-                  cos_ACB = 1;
-                else if (cos_ACB < (-1))
-                  cos_ACB = -1;
-                double angleACB = acos(cos_ACB);
-                double angle_interval = 0.01;
-                // tính góc của vector CA:
-                double angleCA = atan2(yCA, xCA);
-
-                // check thử xem chiều góc quét từ A -> B thì angleCA + delta_angle hay angleCA - delta_angle
-                bool is_increase_angle = false;
-                double check_angle = angleCA + 50 * angle_interval * angleACB;
-                double xA1 = pose_C.x + rCA * cos(check_angle);
-                double yA1 = pose_C.y + rCA * sin(check_angle);
-                double xCA1 = xA1 - pose_C.x;
-                double yCA1 = yA1 - pose_C.y;
-                double cos_A1CB = (xCA1 * xCB + yCA1 * yCB) / (rCA * rCB);
-                if (cos_A1CB > 1)
-                  cos_A1CB = 1;
-                else if (cos_A1CB < (-1))
-                  cos_A1CB = -1;
-                double angleA1CB = acos(cos_A1CB);
-                if (angleA1CB > angleACB)
-                {
-                  is_increase_angle = false;
-                }
-                else if (angleA1CB < angleACB)
-                {
-                  is_increase_angle = true;
-                }
-                else
-                {
-                  ROS_ERROR("Curve AB is too short, cannot compute plan");
-                  return false;
-                }
-                plan1.clear();
-                plan2.clear();
-                if (is_increase_angle)
-                {
-                  for (double i = 0; i <= 1; i += angle_interval)
-                  {
-                    double angle_tmp = angleCA + angleACB * i;
-                    double xP = pose_C.x + rCA * cos(angle_tmp);
-                    double yP = pose_C.y + rCA * sin(angle_tmp);
-                    geometry_msgs::Pose2D p;
-                    p.x = xP;
-                    p.y = yP;
-                    plan1.push_back(p);
-                  }
-                }
-                else
-                {
-                  for (double i = 0; i <= 1; i += angle_interval)
-                  {
-                    double angle_tmp = angleCA - angleACB * i;
-                    double xP = pose_C.x + rCA * cos(angle_tmp);
-                    double yP = pose_C.y + rCA * sin(angle_tmp);
-                    geometry_msgs::Pose2D p;
-                    p.x = xP;
-                    p.y = yP;
-                    plan1.push_back(p);
-                  }
-                }
-                if (!plan1.empty() && plan1.size() > 2)
-                {
-                  if (computeDeltaAngleEndOfPlan(pose_B.theta,
-                                                  plan1.back(), plan1[plan1.size() - 2]) <= 1.3962634016) // <= 80 degree
-                  {
-                    for (int i = 0; i < ((int)plan1.size() - 1); i++)
-                    {
-                      double theta = calculateAngle(plan1[i].x, plan1[i].y,
-                                                    plan1[i + 1].x, plan1[i + 1].y);
-                      plan1[i].theta = (theta);
-                    }
-                    plan1.back().theta = pose_B.theta;
-                  }
-                  else if(computeDeltaAngleEndOfPlan(pose_B.theta,
-                                            plan1.back(), plan1[plan1.size() - 2]) >= 1.745329252) // >= 100 degree
-                  {
-                    for (int i = (int)plan1.size() - 1; i > 0; i--)
-                    {
-                      double theta = calculateAngle(plan1[i].x, plan1[i].y,
-                                                    plan1[i - 1].x, plan1[i - 1].y);
-                      plan1[i].theta = (theta);
-                    }
-                    plan1.front().theta = plan1[1].theta;
-                  }
-                  else
-                  {
-                    ROS_ERROR("Pose_A yaw or Pose_B yaw is invalid value");
-                    return false;
-                  }
-                }
-                else
-                {
-                  ROS_ERROR("Curve AB is too short, cannot compute plan");
-                  return false;
-                }
-                plan2 = divideSegment(pose_B, goal_pose, 0.02);
-                result_plan.assign(plan1.begin(), plan1.end());
-                result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
-                if(!result_plan.empty())
-                return true;
-                else
-                {
-                  ROS_ERROR("[makePlanPickupShelf] failed to make plan TH15");           
-                  return false;
-                }
-              }
-              else
-              {
-                plan1 = divideSegment(current_pose, pose_B, 0.02);
-                plan2 = divideSegment(pose_B, goal_pose, 0.02);
-                result_plan.assign(plan1.begin(), plan1.end());
-                result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
-                if(!result_plan.empty())
-                return true;
-                else
-                {
-                  ROS_ERROR("[makePlanPickupShelf] failed to make plan TH16");           
-                  return false;
-                }
-              }
-            }
+            ROS_ERROR("[makePlanPickupShelf] failed to make plan TH11");           
+            return false;
           }
         }
       }
-
     }
-    return result;
+    else
+    {
+      double pose_intersection_yaw = calculateAngle(pose_intersection.x, pose_intersection.y,
+      current_pose.x, current_pose.y);
+      pose_intersection.theta = pose_intersection_yaw;
+      plan1.clear();
+      plan2.clear();
+      plan1 = divideSegment(current_pose, pose_intersection, 0.02);    
+      pose_intersection.theta = goal_pose_yaw; 
+      plan2 = divideSegment(pose_intersection, goal_pose, 0.02);
+      if(!plan1.empty() && !plan2.empty())
+      {     
+        result_plan.assign(plan1.begin(), plan1.end());
+        result_plan.insert(result_plan.end(), plan2.begin(), plan2.end());
+      }
+      if(!result_plan.empty())
+      {
+        ROS_INFO("[makePlanPickupShelf] make plan TH12");
+        result = true;
+        return true;
+      }
+      else
+      {
+        ROS_ERROR("[makePlanPickupShelf] failed to make plan TH12");            
+        return false;
+      }
+    }
+  }
+  return result;
 }
