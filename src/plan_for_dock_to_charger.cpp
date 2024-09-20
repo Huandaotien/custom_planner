@@ -14,7 +14,7 @@
 
 using namespace std;
 
-namespace plan_pickup_shelf
+namespace plan_dock_to_charger
 {
   void modifyYaw(double& yaw)
   {
@@ -31,7 +31,7 @@ namespace plan_pickup_shelf
     if(deltaX!=0)
     {
       angleRad = atan2(deltaY, deltaX);
-      // double angleDeg = angleRad * 180.0 / M_PI;    
+      // double angleDeg = angleRad * 180.0 / M_PI;
     }
     return angleRad;
   }
@@ -386,20 +386,20 @@ namespace plan_pickup_shelf
     }
   }
 
-  // Hàm gọi make plan : tạo tuyến đường robot đi vào lấy xe hàng 
+  // Hàm gọi make plan : tạo tuyến đường robot đi đến vị trí sạc 
   // khi tạo thành công plan thì hàm trả về True, không thành công thì trả về False và có hiện cảnh báo nguyên nhân.
       // current_pose: pose của robot hiện tại trên map
-      // shelf_pose_on_map: pose của xe hàng trên map
-      // d_offset_min: khoảng cách từ shelf pose đến điểm offset pose tối thiểu để robot có thể vào lấy hàng
+      // charger_pose_on_map: pose của trạm sạc trên map
+      // d_offset_min: khoảng cách từ shelf pose đến điểm offset pose tối thiểu để robot có thể đi vào trạm sạc
       // result_plan: vector chứa plan kết quả
-  bool makePlanPickupShelf(geometry_msgs::Pose2D& current_pose, 
-      geometry_msgs::Pose2D& shelf_pose_on_map,
-      double d_offset_min, bool robot_move_forward, 
+  bool makePlanDockToCharger(geometry_msgs::Pose2D& current_pose, 
+      geometry_msgs::Pose2D& charger_pose_on_map,
+      double d_offset_min, bool robot_move_forward,
       std::vector<geometry_msgs::Pose2D>& result_plan)
   {
     if(d_offset_min<=0)
     {
-      ROS_ERROR("[makePlanPickupShelf] d_offset_min is invalid");
+      ROS_ERROR("[makePlanDockToCharger] d_offset_min is invalid");
       return false;
     }
     bool result = false;    
@@ -407,20 +407,20 @@ namespace plan_pickup_shelf
     std::vector<geometry_msgs::Pose2D> plan2;
     if(robot_move_forward) // robot move forward
     {
-      double shelf_pose_yaw = shelf_pose_on_map.theta;
+      double shelf_pose_yaw = charger_pose_on_map.theta;
       modifyYaw(shelf_pose_yaw);
       double goal_pose_yaw = shelf_pose_yaw + M_PI;
       modifyYaw(goal_pose_yaw);
       geometry_msgs::Pose2D goal_pose;
-      goal_pose = shelf_pose_on_map;
+      goal_pose = charger_pose_on_map;
       goal_pose.theta = goal_pose_yaw;
       geometry_msgs::Pose2D pose_offset_min;                                            
-      pose_offset_min.x = shelf_pose_on_map.x + d_offset_min*cos(shelf_pose_yaw);
-      pose_offset_min.y = shelf_pose_on_map.y + d_offset_min*sin(shelf_pose_yaw);
+      pose_offset_min.x = charger_pose_on_map.x + d_offset_min*cos(shelf_pose_yaw);
+      pose_offset_min.y = charger_pose_on_map.y + d_offset_min*sin(shelf_pose_yaw);
       pose_offset_min.theta = goal_pose.theta;
-      geometry_msgs::Pose2D pose_intersection = findPerpendicularIntersection(current_pose, shelf_pose_on_map, pose_offset_min);
-      double d_shelfpose_to_intersection = std::sqrt(std::pow(pose_intersection.x - shelf_pose_on_map.x, 2) + 
-        std::pow(pose_intersection.y - shelf_pose_on_map.y, 2));
+      geometry_msgs::Pose2D pose_intersection = findPerpendicularIntersection(current_pose, charger_pose_on_map, pose_offset_min);
+      double d_shelfpose_to_intersection = std::sqrt(std::pow(pose_intersection.x - charger_pose_on_map.x, 2) + 
+        std::pow(pose_intersection.y - charger_pose_on_map.y, 2));
       double delta_d1 = d_shelfpose_to_intersection - d_offset_min;
       if(delta_d1 <= 0.1 && delta_d1 >= -0.1)
       {
@@ -431,11 +431,11 @@ namespace plan_pickup_shelf
         {
           result = true;
           return true;
-          ROS_INFO("[makePlanPickupShelf] make plan TH1");
+          ROS_INFO("[makePlanDockToCharger] make plan TH1");
         }
         else
         {
-          ROS_ERROR("[makePlanPickupShelf] failed to make plan TH1");
+          ROS_ERROR("[makePlanDockToCharger] failed to make plan TH1");
           return false;
         }
       }
@@ -464,13 +464,13 @@ namespace plan_pickup_shelf
           }
           if(!result_plan.empty())
           {
-            ROS_INFO("[makePlanPickupShelf] make plan TH2");
+            ROS_INFO("[makePlanDockToCharger] make plan TH2");
             result = true;
             return true;
           }
           else
           {
-            ROS_ERROR("[makePlanPickupShelf] failed to make plan TH2");           
+            ROS_ERROR("[makePlanDockToCharger] failed to make plan TH2");           
             return false;
           }
         }
@@ -493,13 +493,13 @@ namespace plan_pickup_shelf
               }
               if(!result_plan.empty())
               {
-                ROS_INFO("[makePlanPickupShelf] make plan TH3");
+                ROS_INFO("[makePlanDockToCharger] make plan TH3");
                 result = true;
                 return true;
               }
               else
               {
-                ROS_ERROR("[makePlanPickupShelf] failed to make plan TH3");           
+                ROS_ERROR("[makePlanDockToCharger] failed to make plan TH3");           
                 return false;
               }
             }
@@ -514,13 +514,13 @@ namespace plan_pickup_shelf
               }
               if(!result_plan.empty())
               {
-                ROS_INFO("[makePlanPickupShelf] make plan TH4");
+                ROS_INFO("[makePlanDockToCharger] make plan TH4");
                 result = true;
                 return true;
               }
               else
               {
-                ROS_ERROR("[makePlanPickupShelf] failed to make plan TH4");           
+                ROS_ERROR("[makePlanDockToCharger] failed to make plan TH4");           
                 return false;
               }
             }
@@ -536,13 +536,13 @@ namespace plan_pickup_shelf
             }
             if(!result_plan.empty())
             {
-              ROS_INFO("[makePlanPickupShelf] make plan TH5");
+              ROS_INFO("[makePlanDockToCharger] make plan TH5");
               result = true;
               return true;
             }
             else
             {
-              ROS_ERROR("[makePlanPickupShelf] failed to make plan TH5");           
+              ROS_ERROR("[makePlanDockToCharger] failed to make plan TH5");           
               return false;
             }
           }
@@ -565,33 +565,33 @@ namespace plan_pickup_shelf
         }
         if(!result_plan.empty())
         {
-          ROS_INFO("[makePlanPickupShelf] make plan TH6");
+          ROS_INFO("[makePlanDockToCharger] make plan TH6");
           result = true;
           return true;
         }
         else
         {
-          ROS_ERROR("[makePlanPickupShelf] failed to make plan TH6");            
+          ROS_ERROR("[makePlanDockToCharger] failed to make plan TH6");            
           return false;
         }
       }
     }
     else // robot move backward
     {
-      double shelf_pose_yaw = shelf_pose_on_map.theta;
+      double shelf_pose_yaw = charger_pose_on_map.theta;
       modifyYaw(shelf_pose_yaw);
       double goal_pose_yaw = shelf_pose_yaw;
       modifyYaw(goal_pose_yaw);
       geometry_msgs::Pose2D goal_pose;
-      goal_pose = shelf_pose_on_map;
+      goal_pose = charger_pose_on_map;
       goal_pose.theta = goal_pose_yaw;
       geometry_msgs::Pose2D pose_offset_min;                                            
-      pose_offset_min.x = shelf_pose_on_map.x + d_offset_min*cos(shelf_pose_yaw);
-      pose_offset_min.y = shelf_pose_on_map.y + d_offset_min*sin(shelf_pose_yaw);
+      pose_offset_min.x = charger_pose_on_map.x + d_offset_min*cos(shelf_pose_yaw);
+      pose_offset_min.y = charger_pose_on_map.y + d_offset_min*sin(shelf_pose_yaw);
       pose_offset_min.theta = goal_pose.theta;
-      geometry_msgs::Pose2D pose_intersection = findPerpendicularIntersection(current_pose, shelf_pose_on_map, pose_offset_min);
-      double d_shelfpose_to_intersection = std::sqrt(std::pow(pose_intersection.x - shelf_pose_on_map.x, 2) + 
-        std::pow(pose_intersection.y - shelf_pose_on_map.y, 2));
+      geometry_msgs::Pose2D pose_intersection = findPerpendicularIntersection(current_pose, charger_pose_on_map, pose_offset_min);
+      double d_shelfpose_to_intersection = std::sqrt(std::pow(pose_intersection.x - charger_pose_on_map.x, 2) + 
+        std::pow(pose_intersection.y - charger_pose_on_map.y, 2));
       double delta_d1 = d_shelfpose_to_intersection - d_offset_min;
       if(delta_d1 <= 0.1 && delta_d1 >= -0.1)
       {
@@ -602,11 +602,11 @@ namespace plan_pickup_shelf
         {
           result = true;
           return true;
-          ROS_INFO("[makePlanPickupShelf] make plan TH7");
+          ROS_INFO("[makePlanDockToCharger] make plan TH7");
         }
         else
         {
-          ROS_ERROR("[makePlanPickupShelf] failed to make plan TH7");
+          ROS_ERROR("[makePlanDockToCharger] failed to make plan TH7");
           return false;
         }
       }
@@ -635,13 +635,13 @@ namespace plan_pickup_shelf
           }
           if(!result_plan.empty())
           {
-            ROS_INFO("[makePlanPickupShelf] make plan TH8");
+            ROS_INFO("[makePlanDockToCharger] make plan TH8");
             result = true;
             return true;
           }
           else
           {
-            ROS_ERROR("[makePlanPickupShelf] failed to make plan TH8");           
+            ROS_ERROR("[makePlanDockToCharger] failed to make plan TH8");           
             return false;
           }
         }
@@ -669,13 +669,13 @@ namespace plan_pickup_shelf
               }
               if(!result_plan.empty())
               {
-                ROS_INFO("[makePlanPickupShelf] make plan TH9");
+                ROS_INFO("[makePlanDockToCharger] make plan TH9");
                 result = true;
                 return true;
               }
               else
               {
-                ROS_ERROR("[makePlanPickupShelf] failed to make plan TH9");           
+                ROS_ERROR("[makePlanDockToCharger] failed to make plan TH9");           
                 return false;
               }
             }
@@ -690,13 +690,13 @@ namespace plan_pickup_shelf
               }
               if(!result_plan.empty())
               {
-                ROS_INFO("[makePlanPickupShelf] make plan TH10");
+                ROS_INFO("[makePlanDockToCharger] make plan TH10");
                 result = true;
                 return true;
               }
               else
               {
-                ROS_ERROR("[makePlanPickupShelf] failed to make plan TH10");           
+                ROS_ERROR("[makePlanDockToCharger] failed to make plan TH10");           
                 return false;
               }
             }
@@ -712,13 +712,13 @@ namespace plan_pickup_shelf
             }
             if(!result_plan.empty())
             {
-              ROS_INFO("[makePlanPickupShelf] make plan TH11");
+              ROS_INFO("[makePlanDockToCharger] make plan TH11");
               result = true;
               return true;
             }
             else
             {
-              ROS_ERROR("[makePlanPickupShelf] failed to make plan TH11");           
+              ROS_ERROR("[makePlanDockToCharger] failed to make plan TH11");           
               return false;
             }
           }
@@ -741,13 +741,13 @@ namespace plan_pickup_shelf
         }
         if(!result_plan.empty())
         {
-          ROS_INFO("[makePlanPickupShelf] make plan TH12");
+          ROS_INFO("[makePlanDockToCharger] make plan TH12");
           result = true;
           return true;
         }
         else
         {
-          ROS_ERROR("[makePlanPickupShelf] failed to make plan TH12");            
+          ROS_ERROR("[makePlanDockToCharger] failed to make plan TH12");            
           return false;
         }
       }

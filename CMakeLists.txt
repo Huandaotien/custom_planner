@@ -68,6 +68,7 @@ add_library(${PROJECT_NAME}
   src/pose.cc
   src/Curve_common.cpp
   src/plan_for_pickup_shelf.cpp
+  src/plan_for_dock_to_charger.cpp
 )
 target_link_libraries(${PROJECT_NAME} ${SBPL_LIBRARIES})
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
