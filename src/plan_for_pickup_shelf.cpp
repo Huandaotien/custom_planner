@@ -653,9 +653,10 @@ namespace plan_pickup_shelf
           geometry_msgs::Pose2D pose_C;
           geometry_msgs::Pose2D pose_A = current_pose;
           geometry_msgs::Pose2D pose_B_opposite;
+          pose_B.theta = goal_pose.theta;
           pose_B_opposite = pose_B;
-          double pose_B_opposite_yaw = pose_B.theta + M_PI;
-          modifyYaw(pose_B_opposite_yaw);
+          double pose_B_opposite_yaw = calculateAngle(pose_B_opposite.x, pose_B_opposite.y,
+            goal_pose.x, goal_pose.y);
           pose_B_opposite.theta = pose_B_opposite_yaw;
           if(findCenterOfCurve(pose_A, pose_B_opposite, pose_C))
           {
