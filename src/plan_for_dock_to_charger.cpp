@@ -185,7 +185,7 @@ namespace plan_dock_to_charger
 
         // Tính góc cho từng pose trên đoạn AB
         if(computeDeltaAngleEndOfPlan(B.theta,
-          Poses.back(), Poses[Poses.size() - 2]) <= 1.3962634016) // <= 80 degree
+          Poses.back(), Poses[Poses.size() - 2]) <= 0.2617993878) // <= 15 degree
         {
           for(int i = 0; i<((int)Poses.size()-1); i++)
           {
@@ -196,7 +196,7 @@ namespace plan_dock_to_charger
           Poses.back().theta = B.theta;
         }
         else if(computeDeltaAngleEndOfPlan(B.theta,
-                Poses.back(), Poses[Poses.size() - 2]) >= 1.7453292526) // >= 100 degree
+                Poses.back(), Poses[Poses.size() - 2]) >= 2.8797932658) // >= 165 degree
         {       
           for(int i = (int)Poses.size() -1; i>0; i--)
           {
