@@ -204,14 +204,15 @@ namespace custom_planner
       //   exit(1);
       // }
 
-      ROS_INFO("[custom_planner] Initialized successfully");      
+      ROS_WARN("[custom_planner] Initialized successfully");      
       plan_pub_ = private_nh.advertise<nav_msgs::Path>("plan", 1);
       stats_publisher_ = private_nh.advertise<custom_planner::SBPLLatticePlannerStats_>("sbpl_lattice_planner_stats", 1);
       sbpl_plan_footprint_pub_ = private_nh.advertise<visualization_msgs::Marker>("footprint_markers", 1);
       string pathway_fullfilename = userParams_->directory_to_save_paths + "/" + userParams_->pathway_filename;        
       if(loadPathwayData(pathway_fullfilename)) cout<< "Success in load pathway file: "<<pathway_fullfilename<<endl;
       else std::cout<<pathway_fullfilename<<" is not existed"<<std::endl;
-      service_servers_.push_back(p_nh.advertiseService("set_plan_with_nav_path", &CustomPlanner::HandleSetPlanWithNavPath, this));
+      // service_servers_.push_back(p_nh.advertiseService("/set_plan_with_nav_path", &CustomPlanner::HandleSetPlanWithNavPath, this));
+      plan_with_nav_path_sub = private_nh.subscribe("/plan_with_nav_path", 10, &CustomPlanner::HandlePlanWithNavPath, this);
 
       // vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>> control_point;
       // control_point.push_back(Eigen::Vector3d(18.383729, 10.68481159, 0));
@@ -840,7 +841,7 @@ namespace custom_planner
         }
       }
       gui_path.poses = plan;
-      plan_pub_.publish(gui_path);
+      plan_pub_.publish(gui_path);      
     }
     else
     {
@@ -1154,7 +1155,7 @@ namespace custom_planner
         it++;  
       }
       start_on_path_index_tmp = start_on_path_index;
-      ROS_WARN("[custom_planner][findNearestPoseOfPath] start_on_path_index_tmp: %d, start_on_path_index: %d", start_on_path_index_tmp, start_on_path_index);
+      // ROS_WARN("[custom_planner][findNearestPoseOfPath] start_on_path_index_tmp: %d, start_on_path_index: %d", start_on_path_index_tmp, start_on_path_index);
       double SumDistanceCheck = 0;
       if(start_on_path_index==0)
       {
@@ -1228,8 +1229,8 @@ namespace custom_planner
         {
           start_on_path_index = start_on_path_index_tmp+5;
         }
-        ROS_WARN("[custom_planner][findNearestPoseOfPath] TH1 start_on_path_index_1: %d, start_on_path_index_2: %d, start_on_path_index: %d", 
-        start_on_path_index_1, start_on_path_index_2, start_on_path_index);
+        // ROS_WARN("[custom_planner][findNearestPoseOfPath] TH1 start_on_path_index_1: %d, start_on_path_index_2: %d, start_on_path_index: %d", 
+        // start_on_path_index_1, start_on_path_index_2, start_on_path_index);
       }
       else if(start_on_path_index!=((int)posesOnPathWay.size()-1))
       {
@@ -1339,10 +1340,10 @@ namespace custom_planner
           // ROS_WARN("both is not good");
           start_on_path_index = start_on_path_index_tmp+5;
         }
-        ROS_WARN("[custom_planner][findNearestPoseOfPath] TH2 start_on_path_index_1: %d, start_on_path_index_2: %d, start_on_path_index: %d", 
-        start_on_path_index_1, start_on_path_index_2, start_on_path_index);
-        ROS_WARN("[custom_planner][findNearestPoseOfPath] TH2  deltaAngle_1_min: %f, deltaAngle_2_min: %f", 
-        deltaAngle_1_min, deltaAngle_2_min);
+        // ROS_WARN("[custom_planner][findNearestPoseOfPath] TH2 start_on_path_index_1: %d, start_on_path_index_2: %d, start_on_path_index: %d", 
+        // start_on_path_index_1, start_on_path_index_2, start_on_path_index);
+        // ROS_WARN("[custom_planner][findNearestPoseOfPath] TH2  deltaAngle_1_min: %f, deltaAngle_2_min: %f", 
+        // deltaAngle_1_min, deltaAngle_2_min);
       }      
       if(start_on_path_index==((int)posesOnPathWay.size()-1)||start_on_path_index==start_on_path_index_tmp) // find to last element or index is not change
       {
@@ -1364,33 +1365,75 @@ namespace custom_planner
         custom_planner::PlanWithNavPath::Response& response)
   {
     uint8_t status;
-    string message;
-    if(makePlanWithNavPath(request.guide_path, status, message))
+    string message = "[custom_planner] failed to makePlanWithNavPath";
+    response.status = status;
+    response.message = message;
+    response.success = false;
+    nav_msgs::Path path = request.guide_path;
+    if(!path.poses.empty())
     {
-      test_print_plan_result();
-      response.status = status;
-      response.message = message;
-      response.success = true;
+      ROS_WARN("[custom_planner] [HandleSetPlanWithNavPath] request.guide_path is not empty");
+    }
+    // for(int i = 0; i < (int)path.poses.size()-1; i++)
+    // {
+    //   double yaw = getYaw(path.poses[i].pose.orientation.x,
+    //                           path.poses[i].pose.orientation.y,
+    //                           path.poses[i].pose.orientation.z,
+    //                           path.poses[i].pose.orientation.w);
+    //   std::cout<<"pose "<<i<<" : "<<path.poses[i].pose.position.x<<" "<<path.poses[i].pose.position.x<<" "<<yaw<<std::endl;
+    // }
+    // if(makePlanWithNavPath(request.guide_path, status, message))
+    // {
+    //   ROS_WARN("[custom_planner] [HandleSetPlanWithNavPath] makePlanWithNavPath successfully");
+    //   test_print_plan_result();
+    //   response.status = status;
+    //   response.message = message;
+    //   response.success = true;
+    // }
+    // else
+    // {
+    //   ROS_WARN("[custom_planner] [HandleSetPlanWithNavPath] failed to makePlanWithNavPath");
+    //   test_print_plan_result();
+    //   response.status = status;
+    //   response.message = message;
+    //   response.success = false;
+    // }
+    return true;
+  }
+
+  void CustomPlanner::HandlePlanWithNavPath(const nav_msgs::Path::ConstPtr& msg)
+  {
+    uint8_t status;
+    string message;
+    nav_msgs::Path path = *msg;
+    if(makePlanWithNavPath(path, status, message))
+    {
+      if(status == 0)
+      {
+        test_print_plan_result();
+      }
+      else{
+        ROS_WARN("[custom_planner] [HandlePlanWithNavPath] failed to makePlanWithNavPath: %s", message.c_str());
+      }
     }
     else
     {
-      test_print_plan_result();
-      response.status = status;
-      response.message = message;
-      response.success = false;
+      ROS_WARN("[custom_planner] [HandlePlanWithNavPath] failed to makePlanWithNavPath");
     }
-    return true;
   }
 
   bool CustomPlanner::makePlanWithNavPath(nav_msgs::Path& guide_path, uint8_t& status, std::string& message)
   {
+    ROS_WARN("[custom_planner] [makePlanWithNavPath] makePlanWithNavPath is called.");
     if(guide_path.poses.empty())
     {
+      ROS_WARN("[custom_planner] [makePlanWithNavPath] The guide path is empty.");
       status = 1;
-      message = "[custom_planner] The guide path is empty.";
-    }
+      message = "[custom_planner] [makePlanWithNavPath] The guide path is empty.";
+    }    
     else
     {
+      ROS_WARN("[custom_planner] [makePlanWithNavPath] got guide path");
       posesOnPathWay.clear();
       for(int i = 0; i < (int)guide_path.poses.size()-1; i++)
       {
@@ -1402,7 +1445,9 @@ namespace custom_planner
                               guide_path.poses[i+1].pose.orientation.y,
                               guide_path.poses[i+1].pose.orientation.z,
                               guide_path.poses[i+1].pose.orientation.w);
-        if(std::abs(yaw_t2-yaw_t1) <= 1.0471975512) // <= 60 degree
+        Pose p1(guide_path.poses[i].pose.position.x, guide_path.poses[i].pose.position.y, yaw_t1);     
+        Pose p2(guide_path.poses[i+1].pose.position.x, guide_path.poses[i+1].pose.position.y, yaw_t1);     
+        if(computeDeltaAngle(p1, p2) <= 1.0471975512) // <= 60 degree
         {
           posesOnPathWay.emplace_back(Pose(guide_path.poses[i].pose.position.x, guide_path.poses[i].pose.position.y, yaw_t1));
         }
@@ -1425,6 +1470,7 @@ namespace custom_planner
         message = "[custom_planner] Got guide path: " + std::to_string((int)guide_path.poses.size()) + " poses";
       }
     }
+    ROS_WARN("[custom_planner] [makePlanWithNavPath] step1.");
     return true;
   }
 
@@ -2152,7 +2198,7 @@ namespace custom_planner
         }
         else
         {
-          ROS_WARN("[custom_planner][makeCurvePlan] Curve AB is almost a straight line 2");
+          // ROS_WARN("[custom_planner][makeCurvePlan] Curve AB is almost a straight line 2");
           return false;
         }
         if(is_increase_angle)
@@ -2239,7 +2285,7 @@ namespace custom_planner
 
   void CustomPlanner::test_print_plan_result()
   {
-    ROS_WARN("[custom_planne] posesOnPathWay:");
+    ROS_WARN("[custom_planner] posesOnPathWay:");
     for (unsigned int i = 0; i < posesOnPathWay.size(); i++)
     {
       if(i==0) std::cerr<<"{ ";

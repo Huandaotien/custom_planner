@@ -139,6 +139,8 @@ private:
 
   bool HandleSetPlanWithNavPath(custom_planner::PlanWithNavPath::Request& request, custom_planner::PlanWithNavPath::Response& response);
 
+  void HandlePlanWithNavPath(const nav_msgs::Path::ConstPtr& msg);
+
   bool makePlanWithNavPath(nav_msgs::Path& guide_path, uint8_t& status, std::string& message);
 
   bool makePlanForRetry(std::vector<geometry_msgs::PoseStamped>& current_plan, 
@@ -223,6 +225,7 @@ private:
   ros::Subscriber order_msg_sub_;
   ros::Publisher plan_pub_;
   ros::Publisher stats_publisher_;
+  ros::Subscriber plan_with_nav_path_sub;
 
   vector<ros::ServiceServer> service_servers_;
   
