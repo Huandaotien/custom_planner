@@ -1447,7 +1447,7 @@ namespace custom_planner
                               guide_path.poses[i+1].pose.orientation.w);
         Pose p1(guide_path.poses[i].pose.position.x, guide_path.poses[i].pose.position.y, yaw_t1);     
         Pose p2(guide_path.poses[i+1].pose.position.x, guide_path.poses[i+1].pose.position.y, yaw_t1);     
-        if(computeDeltaAngle(p1, p2) <= 1.0471975512) // <= 60 degree
+        if(computeDeltaAngle(p1, p2) <= 1.6) // <= 91.673247 degree
         {
           posesOnPathWay.emplace_back(Pose(guide_path.poses[i].pose.position.x, guide_path.poses[i].pose.position.y, yaw_t1));
         }
