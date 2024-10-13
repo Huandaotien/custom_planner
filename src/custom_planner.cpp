@@ -1183,7 +1183,7 @@ namespace custom_planner
             double dy = posesOnPathWay[i].getY() - posesOnPathWay[i-1].getY();
             SumDistanceCheck2 += sqrt(dx*dx + dy*dy);
           }
-          if(SumDistanceCheck2<2.5) //search distance < 2 m
+          if(SumDistanceCheck2<0.1) //search distance < 0.1 m
           {
             double deltaAngle_2 = computeDeltaAngle(PoseToCheck, posesOnPathWay[i]);
             if(deltaAngle_2 <= 0.7853981634) // <= 45 degree
@@ -1283,7 +1283,7 @@ namespace custom_planner
             double dy = posesOnPathWay[i].getY() - posesOnPathWay[i-1].getY();
             SumDistanceCheck2 += sqrt(dx*dx + dy*dy);
           }
-          if(SumDistanceCheck2<2.5) //search distance < 2 m
+          if(SumDistanceCheck2<0.1) //search distance < 0.1 m
           {
             double deltaAngle_2 = computeDeltaAngle(PoseToCheck, posesOnPathWay[i]);
             if(deltaAngle_2 <= 0.7853981634) // <= 45 degree
