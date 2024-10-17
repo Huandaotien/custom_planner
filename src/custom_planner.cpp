@@ -1183,7 +1183,7 @@ namespace custom_planner
             double dy = posesOnPathWay[i].getY() - posesOnPathWay[i-1].getY();
             SumDistanceCheck2 += sqrt(dx*dx + dy*dy);
           }
-          if(SumDistanceCheck2<0.1) //search distance < 0.1 m
+          if(SumDistanceCheck2<0.007) //search distance < 0.007 m
           {
             double deltaAngle_2 = computeDeltaAngle(PoseToCheck, posesOnPathWay[i]);
             if(deltaAngle_2 <= 0.7853981634) // <= 45 degree
@@ -1227,7 +1227,7 @@ namespace custom_planner
         }
         else
         {
-          start_on_path_index = start_on_path_index_tmp+5;
+          start_on_path_index = start_on_path_index_tmp+0; // previous edit: start_on_path_index_tmp+5
         }
         // ROS_WARN("[custom_planner][findNearestPoseOfPath] TH1 start_on_path_index_1: %d, start_on_path_index_2: %d, start_on_path_index: %d", 
         // start_on_path_index_1, start_on_path_index_2, start_on_path_index);
@@ -1251,7 +1251,7 @@ namespace custom_planner
             double dy = posesOnPathWay[i].getY() - posesOnPathWay[i+1].getY();
             SumDistanceCheck1 += sqrt(dx*dx + dy*dy);
           }          
-          if(SumDistanceCheck1<2) //search distance < 2 m
+          if(SumDistanceCheck1<0.007) //search distance < 0.007 m
           {
             double deltaAngle_1 = computeDeltaAngle(PoseToCheck, posesOnPathWay[i]);
             if(deltaAngle_1 <= 0.7853981634) // <= 45 degree
@@ -1283,7 +1283,7 @@ namespace custom_planner
             double dy = posesOnPathWay[i].getY() - posesOnPathWay[i-1].getY();
             SumDistanceCheck2 += sqrt(dx*dx + dy*dy);
           }
-          if(SumDistanceCheck2<0.1) //search distance < 0.1 m
+          if(SumDistanceCheck2<0.007) //search distance < 0.007 m
           {
             double deltaAngle_2 = computeDeltaAngle(PoseToCheck, posesOnPathWay[i]);
             if(deltaAngle_2 <= 0.7853981634) // <= 45 degree
@@ -1338,7 +1338,7 @@ namespace custom_planner
         else
         {
           // ROS_WARN("both is not good");
-          start_on_path_index = start_on_path_index_tmp+5;
+          start_on_path_index = start_on_path_index_tmp+0; // previous edit: start_on_path_index_tmp+5
         }
         // ROS_WARN("[custom_planner][findNearestPoseOfPath] TH2 start_on_path_index_1: %d, start_on_path_index_2: %d, start_on_path_index: %d", 
         // start_on_path_index_1, start_on_path_index_2, start_on_path_index);
@@ -2130,7 +2130,7 @@ namespace custom_planner
     double xAB = pose_B.getX() - pose_A.getX();
     double yAB = pose_B.getY() - pose_A.getY();
     double d_AB = sqrt(xAB*xAB + yAB*yAB);
-    if(d_AB<=0.1)
+    if(d_AB<=0.02)
     {
       ROS_WARN("[custom_planner][makeCurvePlan] Curve AB is too short, it is almost a straight line");
       return false;
