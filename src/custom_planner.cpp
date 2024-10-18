@@ -1410,7 +1410,7 @@ namespace custom_planner
     {
       if(status == 0)
       {
-        test_print_plan_result();
+        // test_print_plan_result();
       }
       else{
         ROS_WARN("[custom_planner] [HandlePlanWithNavPath] failed to makePlanWithNavPath: %s", message.c_str());
